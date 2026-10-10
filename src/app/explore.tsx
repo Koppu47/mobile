@@ -1,180 +1,198 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  TouchableOpacity,
+} from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { getUserVehicles, getMaintenanceLogs } from '../lib/storage';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+export default function StatusScreen() {
+  const [dbStatus, setDbStatus] = useState<string>('กำลังตรวจสอบ...');
+  const [tableStatus, setTableStatus] = useState<Record<string, boolean>>({});
+  const [vehicleCount, setVehicleCount] = useState<number>(0);
+  const [logCount, setLogCount] = useState<number>(0);
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
+  const checkConnection = useCallback(async () => {
+    setDbStatus('กำลังทดสอบการเชื่อมต่อ...');
+    if (!isSupabaseConfigured()) {
+      setDbStatus('ยังไม่ได้ตั้งค่าคีย์ Supabase');
+      return;
+    }
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+    try {
+      // Test Master Catalog tables
+      const { data: bData, error: bErr } = await supabase.from('brands').select('id');
+      const { data: mData, error: mErr } = await supabase.from('car_models').select('id');
+      const { data: vData, error: vErr } = await supabase.from('vehicle_variants').select('id');
+
+      setTableStatus({
+        brands: !bErr,
+        car_models: !mErr,
+        vehicle_variants: !vErr,
+      });
+
+      if (!bErr) {
+        setDbStatus('เชื่อมต่อ Master Catalog สำเร็จ ✓');
+      } else {
+        setDbStatus('เชื่อมต่อเซิร์ฟเวอร์ได้แล้ว (รอรันคำสั่ง SQL สร้างตาราง)');
+      }
+    } catch (e: any) {
+      setDbStatus('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    }
+
+    const cars = await getUserVehicles();
+    const logs = await getMaintenanceLogs();
+    setVehicleCount(cars.length);
+    setLogCount(logs.length);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkConnection();
+    }, [checkConnection])
+  );
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>สถานะระบบ & Supabase</Text>
+          <Text style={styles.subtitle}>ตรวจสอบความพร้อมของฐานข้อมูลและคลาวด์</Text>
+        </View>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
+        {/* Supabase Status Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="cloud" size={20} color="#38bdf8" />
+            <Text style={styles.cardTitle}>การเชื่อมต่อ Supabase</Text>
+          </View>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          <View style={styles.row}>
+            <Text style={styles.label}>Project URL:</Text>
+            <Text style={styles.val} numberOfLines={1}>
+              https://acjcnusbzfjulcigmlwd.supabase.co
+            </Text>
+          </View>
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+          <View style={styles.row}>
+            <Text style={styles.label}>สถานะ:</Text>
+            <Text style={[styles.val, { color: '#38bdf8', fontWeight: 'bold' }]}>
+              {dbStatus}
+            </Text>
+          </View>
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          <TouchableOpacity style={styles.retryBtn} onPress={checkConnection}>
+            <Ionicons name="refresh" size={14} color="#0f172a" />
+            <Text style={styles.retryText}>ทดสอบการเชื่อมต่อใหม่</Text>
+          </TouchableOpacity>
+        </View>
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+        {/* Database Tables Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="server" size={20} color="#10b981" />
+            <Text style={styles.cardTitle}>ตาราง Master Catalog (Read-Only)</Text>
+          </View>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableText}>• brands (แบรนด์รถ)</Text>
+            <Text
+              style={[
+                styles.badge,
+                tableStatus.brands ? styles.badgeGreen : styles.badgeYellow,
+              ]}
+            >
+              {tableStatus.brands ? 'พร้อมใช้งาน' : 'รอรัน SQL'}
+            </Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableText}>• car_models (รุ่นรถ)</Text>
+            <Text
+              style={[
+                styles.badge,
+                tableStatus.car_models ? styles.badgeGreen : styles.badgeYellow,
+              ]}
+            >
+              {tableStatus.car_models ? 'พร้อมใช้งาน' : 'รอรัน SQL'}
+            </Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableText}>• vehicle_variants (รุ่นย่อย & สเปก)</Text>
+            <Text
+              style={[
+                styles.badge,
+                tableStatus.vehicle_variants ? styles.badgeGreen : styles.badgeYellow,
+              ]}
+            >
+              {tableStatus.vehicle_variants ? 'พร้อมใช้งาน' : 'รอรัน SQL'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Local Storage Cache Info */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="phone-portrait" size={20} color="#a855f7" />
+            <Text style={styles.cardTitle}>ข้อมูลออฟไลน์ในเครื่อง (AsyncStorage)</Text>
+          </View>
+          <Text style={styles.cacheText}>
+            • จำนวนรถที่บันทึก: {vehicleCount} คัน
+          </Text>
+          <Text style={styles.cacheText}>
+            • จำนวนประวัติการดูแล: {logCount} รายการ
+          </Text>
+          <Text style={styles.cacheHint}>
+            ระบบรองรับ Offline First ข้อมูลจะทำงานในเครื่องได้ทันทีแม้ยังไม่มีอินเทอร์เน็ต
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
+  safeArea: { flex: 1, backgroundColor: '#090d16' },
+  container: { padding: 16, gap: 14 },
+  header: { marginBottom: 4 },
+  title: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+  subtitle: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
+  card: {
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    gap: 8,
   },
-  contentContainer: {
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  cardTitle: { fontSize: 13, fontWeight: 'bold', color: '#fff' },
+  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  label: { fontSize: 11, color: '#64748b' },
+  val: { fontSize: 11, color: '#cbd5e1', flex: 1, textAlign: 'right' },
+  retryBtn: {
+    backgroundColor: '#38bdf8',
     flexDirection: 'row',
     justifyContent: 'center',
-  },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginTop: 6,
   },
-  centerText: {
-    textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-  },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
-  },
+  retryText: { color: '#0f172a', fontWeight: 'bold', fontSize: 11 },
+  tableRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tableText: { fontSize: 11, color: '#cbd5e1' },
+  badge: { fontSize: 10, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  badgeGreen: { backgroundColor: '#064e3b', color: '#6ee7b7' },
+  badgeYellow: { backgroundColor: '#78350f', color: '#fde68a' },
+  cacheText: { fontSize: 11, color: '#cbd5e1' },
+  cacheHint: { fontSize: 10.5, color: '#64748b', marginTop: 4, lineHeight: 15 },
 });
