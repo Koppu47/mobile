@@ -6,12 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Alert,
   Modal,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -24,9 +24,12 @@ import {
 } from '../lib/storage';
 import { UserVehicle, Brand, CarModel, Generation, VehicleVariant, MaintenanceLog } from '../types';
 import { BRANDS, CAR_MODELS, GENERATIONS, VEHICLE_VARIANTS } from '../data/seedData';
+import { useLanguage } from '../lib/LanguageContext';
 
 export default function CarsScreen() {
   const router = useRouter();
+  const { lang, toggleLanguage } = useLanguage();
+
   const [vehicles, setVehicles] = useState<UserVehicle[]>([]);
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [activeCarId, setActiveCarId] = useState<string>('');
@@ -159,9 +162,9 @@ export default function CarsScreen() {
     : [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => router.back()}
@@ -169,8 +172,10 @@ export default function CarsScreen() {
             <Ionicons name="arrow-back" size={20} color="#cbd5e1" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>รถของฉัน (My Garage)</Text>
-            <Text style={styles.headerSubtitle} numberOfLines={1}>จัดการข้อมูลรถยนต์และสลับรถ</Text>
+            <Text style={styles.headerTitle}>{lang === 'th' ? 'รถของฉัน (My Garage)' : 'My Vehicles'}</Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              {lang === 'th' ? 'จัดการข้อมูลรถยนต์และสลับรถ' : 'Manage & Switch Vehicles'}
+            </Text>
           </View>
         </View>
         <TouchableOpacity
@@ -180,8 +185,8 @@ export default function CarsScreen() {
             setIsModalOpen(true);
           }}
         >
-          <Ionicons name="add" size={20} color="#fff" />
-          <Text style={styles.addBtnText}>เพิ่มรถ</Text>
+          <Ionicons name="add" size={18} color="#fff" />
+          <Text style={styles.addBtnText}>{lang === 'th' ? 'เพิ่มรถ' : 'Add'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -477,7 +482,7 @@ export default function CarsScreen() {
 
             <View style={styles.modalFooter}>
               {step > 1 && (
-                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(step - 1)}>
+                <TouchableOpacity style={styles.modalBackBtn} onPress={() => setStep(step - 1)}>
                   <Ionicons name="arrow-back" size={18} color="#94a3b8" />
                   <Text style={styles.backBtnText}>ย้อนกลับ</Text>
                 </TouchableOpacity>
@@ -516,6 +521,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -524,6 +530,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
+    backgroundColor: '#0f172a',
   },
   headerTitle: {
     fontSize: 18,
@@ -855,7 +862,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#334155',
   },
-  backBtn: {
+  modalBackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,

@@ -1054,3 +1054,8 @@ export function getFluidRequirementsForVariant(variantId: string): VariantFluidR
   const keys = Object.keys(VARIANT_FLUID_SPECS);
   return VARIANT_FLUID_SPECS[keys[0]] || null;
 }
+
+export function getVariantById(variantId: string): VehicleVariant | undefined {
+  return VEHICLE_VARIANTS.find((v) => v.id === variantId);
+}
+

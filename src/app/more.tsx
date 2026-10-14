@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../lib/LanguageContext';
 
 export default function MoreScreen() {
   const router = useRouter();
+  const { lang, setLang } = useLanguage();
 
   const services = [
     {
@@ -53,15 +55,25 @@ export default function MoreScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerSubtitle}>CARSERVICES MENU</Text>
-          <Text style={styles.headerTitle}>อื่นๆ & บริการทั้งหมด</Text>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* Top Header */}
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>
+            {lang === 'th' ? 'อื่นๆ & บริการทั้งหมด' : 'More & Services'}
+          </Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {lang === 'th' ? 'เมนูและบริการเสริมสำหรับดูแลรถ' : 'Additional Features & Services'}
+          </Text>
         </View>
+      </View>
 
-        {/* Feature: System Status Highlight Button (ตามที่สั่ง) */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Feature: System Status Highlight Button */}
         <View style={styles.systemStatusSection}>
           <View style={styles.statusSectionHeader}>
             <View style={styles.pulseDot} />
@@ -97,8 +109,80 @@ export default function MoreScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Feature: Language Selection Menu */}
+        <View style={styles.langSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Ionicons name="globe-outline" size={18} color="#38bdf8" />
+            <Text style={styles.sectionTitle}>
+              {lang === 'th' ? 'เลือกภาษา / Language' : 'Display Language'}
+            </Text>
+          </View>
+
+          <View style={styles.langSettingCard}>
+            <TouchableOpacity
+              style={[
+                styles.langRowItem,
+                lang === 'th' && styles.langRowItemActive,
+              ]}
+              onPress={() => setLang('th')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.langRowLeft}>
+                <View style={[styles.langFlagCircle, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+                  <Text style={styles.flagEmoji}>🇹🇭</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.langNameText}>ภาษาไทย (Thai)</Text>
+                  <Text style={styles.langDescText}>
+                    แสดงผลและคำแนะนำทั้งหมดเป็นภาษาไทย
+                  </Text>
+                </View>
+              </View>
+              {lang === 'th' ? (
+                <View style={styles.langActiveBadge}>
+                  <Ionicons name="checkmark-circle" size={22} color="#38bdf8" />
+                </View>
+              ) : (
+                <View style={styles.langRadioUnchecked} />
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.langDivider} />
+
+            <TouchableOpacity
+              style={[
+                styles.langRowItem,
+                lang === 'en' && styles.langRowItemActive,
+              ]}
+              onPress={() => setLang('en')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.langRowLeft}>
+                <View style={[styles.langFlagCircle, { backgroundColor: 'rgba(56, 189, 248, 0.12)' }]}>
+                  <Text style={styles.flagEmoji}>🇬🇧</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.langNameText}>English (EN)</Text>
+                  <Text style={styles.langDescText}>
+                    Display menus & specifications in English
+                  </Text>
+                </View>
+              </View>
+              {lang === 'en' ? (
+                <View style={styles.langActiveBadge}>
+                  <Ionicons name="checkmark-circle" size={22} color="#38bdf8" />
+                </View>
+              ) : (
+                <View style={styles.langRadioUnchecked} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Services List */}
-        <Text style={styles.sectionTitle}>บริการและเมนูทั้งหมด</Text>
+        <Text style={styles.sectionTitle}>
+          {lang === 'th' ? 'บริการและเมนูทั้งหมด' : 'All Services & Features'}
+        </Text>
         <View style={styles.serviceList}>
           {services.map((item) => (
             <TouchableOpacity
@@ -134,27 +218,36 @@ export default function MoreScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#090d16',
+    backgroundColor: '#0f172a',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+    backgroundColor: '#0f172a',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
   },
   container: {
     padding: 16,
     paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 20,
-    marginTop: 6,
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    color: '#38bdf8',
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 2,
   },
   systemStatusSection: {
     marginBottom: 24,
@@ -255,6 +348,72 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  langSection: {
+    marginBottom: 24,
+  },
+  langSettingCard: {
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    overflow: 'hidden',
+  },
+  langRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+  },
+  langRowItemActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+  },
+  langRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  langFlagCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flagEmoji: {
+    fontSize: 20,
+  },
+  langNameText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  langDescText: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  langActiveBadge: {
+    paddingLeft: 8,
+  },
+  langRadioUnchecked: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#475569',
+  },
+  langDivider: {
+    height: 1,
+    backgroundColor: '#1e293b',
+    marginHorizontal: 14,
   },
   serviceList: {
     gap: 10,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DIY_GUIDES } from '../data/diyGuidesData';
 import { DIYGuide } from '../types';
+import { useLanguage } from '../lib/LanguageContext';
 
 export default function GuidesScreen() {
+  const { lang } = useLanguage();
+
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeGuide, setActiveGuide] = useState<DIYGuide | null>(null);
@@ -50,11 +53,13 @@ export default function GuidesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>คู่มือการบำรุงรักษา DIY</Text>
-          <Text style={styles.headerSubtitle}>ขั้นตอนปฏิบัติจริงพร้อมคำเตือนความปลอดภัย</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>{lang === 'th' ? 'คู่มือการบำรุงรักษา DIY' : 'DIY Maintenance Guides'}</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {lang === 'th' ? 'ขั้นตอนปฏิบัติจริงพร้อมคำเตือนความปลอดภัย' : 'Step-by-step guides & safety tips'}
+          </Text>
         </View>
       </View>
 
@@ -266,11 +271,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 10,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
+    backgroundColor: '#0f172a',
   },
   headerTitle: {
     fontSize: 18,

@@ -2,13 +2,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   RefreshControl,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -19,32 +20,37 @@ import {
   onActiveVehicleChange,
   onVehiclesChange,
 } from '../lib/storage';
-import { SafeStorage } from '../lib/safeStorage';
 import { UserVehicle, ReminderItem, MaintenanceLog } from '../types';
 import { DIY_GUIDES } from '../data/diyGuidesData';
+import { useLanguage } from '../lib/LanguageContext';
+import { MASCOT_DIALOGUES, MascotDialogue } from '../data/mascotDialogues';
+
+const MASCOT_IMAGES = {
+  main01: require('../../assets/main01.png'),
+  happy01: require('../../assets/happy01.png'),
+  curious: require('../../assets/curious.png'),
+};
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [lang, setLang] = useState<'th' | 'en'>('th');
+  const { lang } = useLanguage();
   const [vehicles, setVehicles] = useState<UserVehicle[]>([]);
   const [activeCar, setActiveCar] = useState<UserVehicle | null>(null);
   const [latestLog, setLatestLog] = useState<MaintenanceLog | null>(null);
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
-  const [selectedReminderInfo, setSelectedReminderInfo] = useState<ReminderItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentDialogue, setCurrentDialogue] = useState<MascotDialogue>(
+    () => MASCOT_DIALOGUES.find((d) => d.isInitial) || MASCOT_DIALOGUES[0]
+  );
 
-  useEffect(() => {
-    SafeStorage.getItem('carservices_lang').then((saved) => {
-      if (saved === 'en' || saved === 'th') {
-        setLang(saved);
-      }
-    });
-  }, []);
-
-  const toggleLanguage = async () => {
-    const nextLang = lang === 'th' ? 'en' : 'th';
-    setLang(nextLang);
-    await SafeStorage.setItem('carservices_lang', nextLang);
+  const handleMascotTap = () => {
+    const available = MASCOT_DIALOGUES.filter(
+      (d) => !d.isInitial && d.id !== currentDialogue.id
+    );
+    if (available.length > 0) {
+      const randomIndex = Math.floor(Math.random() * available.length);
+      setCurrentDialogue(available[randomIndex]);
+    }
   };
 
   const loadData = useCallback(async () => {
@@ -97,7 +103,22 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* Top App Bar Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.logoBadge}>
+            <Ionicons name="car" size={18} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.appSubTitle}>CarServices</Text>
+            <Text style={styles.appTitle} numberOfLines={1}>
+              {lang === 'th' ? 'คู่มือของเหลวรถยนต์' : 'Car Fluids Guide'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -105,44 +126,39 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38bdf8" />
         }
       >
-        {/* Top App Bar Header */}
-        <View style={styles.header}>
-          <View style={styles.headerTitleRow}>
-            <View style={styles.logoBadge}>
-              <Ionicons name="car" size={18} color="#fff" />
-            </View>
-            <View>
-              <Text style={styles.appSubTitle}>CarServices</Text>
-              <Text style={styles.appTitle}>
-                {lang === 'th' ? 'คู่มือของเหลวรถยนต์' : 'Car Fluids Guide'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Light Switch Style Language Toggle (สวิชไฟ TH / EN) */}
-          <TouchableOpacity
-            style={styles.langSwitchBtn}
-            onPress={toggleLanguage}
-            activeOpacity={0.85}
-            accessibilityRole="switch"
-            accessibilityLabel={`เปลี่ยนภาษา ปัจจุบันเป็น ${lang === 'th' ? 'ไทย' : 'English'}`}
-          >
-            <View style={[styles.switchTrack, lang === 'en' ? styles.switchTrackEn : styles.switchTrackTh]}>
-              <View style={[styles.switchThumb, lang === 'en' ? styles.switchThumbEn : styles.switchThumbTh]}>
-                <View style={[styles.switchLed, lang === 'en' ? styles.switchLedEn : styles.switchLedTh]} />
-                <Text style={styles.switchThumbText}>{lang.toUpperCase()}</Text>
-              </View>
-              <View style={styles.switchLabels}>
-                <Text style={[styles.switchLabelText, lang === 'th' && styles.switchLabelHidden]}>TH</Text>
-                <Text style={[styles.switchLabelText, lang === 'en' && styles.switchLabelHidden]}>EN</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-
         {/* Active Vehicle Card */}
         {activeCar ? (
-          <View style={styles.carCard}>
+          <>
+            {/* Mascot Character Banner (ตัวละครเกาะบนกรอบรถที่เลือกใช้งาน - แตะเพื่อสุ่มคำพูดและเปลี่ยนอารมณ์) */}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={handleMascotTap}
+              style={styles.mascotBanner}
+              accessibilityRole="button"
+              accessibilityLabel="แตะตัวละครเพื่อสุ่มคำพูดหรือเคล็ดลับดูแลรถ"
+            >
+              <View style={styles.mascotCharWrap}>
+                <Image
+                  source={MASCOT_IMAGES[currentDialogue.mood]}
+                  style={styles.mascotImage}
+                  resizeMode="contain"
+                />
+              </View>
+
+              <View style={styles.speechBubbleWrap}>
+                <View style={styles.speechBubble}>
+                  <View style={styles.speechBubbleArrowBorder} />
+                  <View style={styles.speechBubbleArrow} />
+                  <Text style={styles.speechBubbleText}>
+                    {lang === 'en' && currentDialogue.enText
+                      ? currentDialogue.enText
+                      : currentDialogue.text}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.carCard}>
             <View style={styles.carBadgeRow}>
               <Text style={styles.activeTag}>
                 {lang === 'th' ? '✓ รถที่เลือกใช้งาน' : '✓ Active Vehicle'}
@@ -187,13 +203,14 @@ export default function HomeScreen() {
               style={styles.selectCarBtn}
               onPress={() => router.push('/cars' as any)}
             >
-              <Ionicons name="car-sport" size={17} color="#0f172a" />
+              <Ionicons name="car-sport" size={17} color="#ffffff" />
               <Text style={styles.selectCarBtnText}>
                 {lang === 'th' ? 'เลือกรถ' : 'Select Vehicle'}
               </Text>
             </TouchableOpacity>
           </View>
-        ) : (
+        </>
+      ) : (
           <TouchableOpacity
             style={styles.noCarCard}
             onPress={() => router.push('/cars' as any)}
@@ -232,13 +249,13 @@ export default function HomeScreen() {
         <View style={styles.gridNav}>
           <TouchableOpacity
             style={styles.gridBtn}
-            onPress={() => router.push('/logs' as any)}
+            onPress={() => router.push('/fluids' as any)}
           >
-            <View style={[styles.gridIcon, { backgroundColor: 'rgba(168,85,247,0.15)' }]}>
-              <Ionicons name="create" size={22} color="#c084fc" />
+            <View style={[styles.gridIcon, { backgroundColor: 'rgba(56,189,248,0.15)' }]}>
+              <Ionicons name="water" size={22} color="#38bdf8" />
             </View>
             <Text style={styles.gridLabel} numberOfLines={1}>
-              {lang === 'th' ? 'บันทึกงาน DIY' : 'DIY Logs'}
+              {lang === 'th' ? 'สเปคของเหลว' : 'Fluid Specs'}
             </Text>
           </TouchableOpacity>
 
@@ -279,7 +296,30 @@ export default function HomeScreen() {
 
         {recordedReminders.length > 0 ? (
           recordedReminders.map((item) => (
-            <View key={item.id} style={styles.reminderCard}>
+            <TouchableOpacity
+              key={item.id}
+              style={styles.reminderCard}
+              activeOpacity={0.7}
+              onPress={() => {
+                router.push({
+                  pathname: '/logs',
+                  params: {
+                    reminderCategory: item.category,
+                    reminderTitle: item.title,
+                    lastDoneDate: item.lastDoneDate || '',
+                    lastDoneMileage: item.lastDoneMileage != null ? String(item.lastDoneMileage) : '',
+                    dueMileage: item.dueMileage != null ? String(item.dueMileage) : '',
+                    dueDate: item.dueDate || '',
+                    standard: item.standard || '',
+                    volumeLitres: item.volumeLitres != null ? String(item.volumeLitres) : '',
+                    intervalKm: item.intervalKm != null ? String(item.intervalKm) : '',
+                    intervalMonths: item.intervalMonths != null ? String(item.intervalMonths) : '',
+                    warningNote: item.notes || '',
+                    status: item.status || '',
+                  },
+                } as any);
+              }}
+            >
               <View style={styles.reminderInfo}>
                 <Text style={styles.reminderTitle}>{item.title}</Text>
                 <Text style={styles.reminderSub}>
@@ -304,15 +344,9 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                 )}
-                <TouchableOpacity
-                  style={styles.infoIconBtn}
-                  onPress={() => setSelectedReminderInfo(item)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="information-circle-outline" size={24} color="#38bdf8" />
-                </TouchableOpacity>
+                <Ionicons name="chevron-forward" size={18} color="#64748b" />
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         ) : (
           <View style={styles.emptyReminderCard}>
@@ -351,8 +385,9 @@ export default function HomeScreen() {
             key={guide.id}
             style={styles.guideCard}
             onPress={() => router.push('/guides' as any)}
+            activeOpacity={0.7}
           >
-            <View>
+            <View style={{ flex: 1, marginRight: 10 }}>
               <View style={styles.guideBadgeRow}>
                 <Text style={styles.guideDiff}>{guide.difficulty}</Text>
                 <Text style={styles.guideTime}>
@@ -369,126 +404,33 @@ export default function HomeScreen() {
         ))}
       </ScrollView>
 
-      {/* Fluid Spec Details Modal */}
-      <Modal
-        visible={!!selectedReminderInfo}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedReminderInfo(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleRow}>
-                <View style={styles.modalIconBadge}>
-                  <Ionicons name="water" size={18} color="#38bdf8" />
-                </View>
-                <Text style={styles.modalTitle}>{selectedReminderInfo?.title}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setSelectedReminderInfo(null)}
-                style={styles.modalCloseBtn}
-              >
-                <Ionicons name="close" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalScroll}>
-              {/* Record Summary */}
-              <View style={styles.modalSectionBox}>
-                <Text style={styles.modalSectionLabel}>ประวัติการเปลี่ยนล่าสุด</Text>
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalRowLabel}>วันที่ทำล่าสุด:</Text>
-                  <Text style={styles.modalRowVal}>
-                    {selectedReminderInfo?.lastDoneDate || '-'}
-                  </Text>
-                </View>
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalRowLabel}>เลขไมล์ที่บันทึก:</Text>
-                  <Text style={styles.modalRowValHighlight}>
-                    {selectedReminderInfo?.lastDoneMileage != null
-                      ? `${selectedReminderInfo.lastDoneMileage.toLocaleString()} กม.`
-                      : '-'}
-                  </Text>
-                </View>
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalRowLabel}>ครบกำหนดรอบถัดไป:</Text>
-                  <Text style={styles.modalRowValDue}>
-                    {selectedReminderInfo?.dueMileage != null
-                      ? `${selectedReminderInfo.dueMileage.toLocaleString()} กม.`
-                      : '-'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Spec & Interval Info */}
-              <View style={styles.modalSectionBox}>
-                <Text style={styles.modalSectionLabel}>สเปกที่แนะนำตามรุ่นรถ</Text>
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalRowLabel}>มาตรฐาน / สเปก:</Text>
-                  <Text style={styles.modalRowVal}>
-                    {selectedReminderInfo?.standard || 'ตามคู่มือประจำรถ'}
-                  </Text>
-                </View>
-                {selectedReminderInfo?.volumeLitres && (
-                  <View style={styles.modalRow}>
-                    <Text style={styles.modalRowLabel}>ปริมาณที่ใช้:</Text>
-                    <Text style={styles.modalRowVal}>
-                      {selectedReminderInfo.volumeLitres}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalRowLabel}>ระยะรอบเปลี่ยน:</Text>
-                  <Text style={styles.modalRowVal}>
-                    ทุก {selectedReminderInfo?.intervalKm?.toLocaleString()} กม. หรือ {selectedReminderInfo?.intervalMonths} เดือน
-                  </Text>
-                </View>
-                {selectedReminderInfo?.notes && (
-                  <View style={{ marginTop: 8 }}>
-                    <Text style={styles.modalNotesLabel}>คำแนะนำ / ข้อสังเกต:</Text>
-                    <Text style={styles.modalNotesVal}>{selectedReminderInfo.notes}</Text>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalFooterRow}>
-              <TouchableOpacity
-                style={styles.modalLogBtn}
-                onPress={() => {
-                  setSelectedReminderInfo(null);
-                  router.push('/logs' as any);
-                }}
-              >
-                <Ionicons name="create-outline" size={16} color="#0f172a" />
-                <Text style={styles.modalLogBtnText}>ไปหน้าบันทึกงาน DIY</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalCloseFooterBtn}
-                onPress={() => setSelectedReminderInfo(null)}
-              >
-                <Text style={styles.modalCloseFooterText}>ปิด</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#090d16' },
+  safeArea: { flex: 1, backgroundColor: '#0f172a' },
   container: { flex: 1 },
   contentContainer: { padding: 16, paddingBottom: 40 },
   header: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+    backgroundColor: '#0f172a',
   },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
   logoBadge: {
     width: 36,
     height: 36,
@@ -499,86 +441,85 @@ const styles = StyleSheet.create({
   },
   appSubTitle: { fontSize: 11, color: '#38bdf8', fontWeight: '600' },
   appTitle: { fontSize: 16, color: '#fff', fontWeight: 'bold' },
-  langSwitchBtn: {
-    paddingVertical: 2,
-  },
-  switchTrack: {
-    width: 76,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#0b1120',
-    borderWidth: 1.5,
-    borderColor: '#334155',
-    position: 'relative',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  switchTrackTh: {
-    borderColor: '#0284c7',
-  },
-  switchTrackEn: {
-    borderColor: '#38bdf8',
-  },
-  switchThumb: {
-    position: 'absolute',
-    top: 2.5,
-    width: 37,
-    height: 24,
-    borderRadius: 12,
+  mascotBanner: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    marginBottom: -6,
+    zIndex: 10,
+    elevation: 10,
+    paddingLeft: 18,
+    paddingRight: 6,
+  },
+  mascotCharWrap: {
+    width: 125,
+    height: 155,
+    zIndex: 10,
+    elevation: 10,
+  },
+  mascotImage: {
+    width: '100%',
+    height: '100%',
+  },
+  speechBubbleWrap: {
+    flex: 1,
+    paddingLeft: 10,
+    paddingRight: 4,
+    paddingBottom: 18,
     justifyContent: 'center',
-    gap: 3.5,
+    zIndex: 5,
+  },
+  speechBubble: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#38bdf8',
+    paddingVertical: 10,
+    paddingHorizontal: 13,
+    position: 'relative',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
     elevation: 4,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  speechBubbleArrow: {
+    position: 'absolute',
+    left: -7,
+    top: '50%',
+    marginTop: -6,
+    width: 0,
+    height: 0,
+    borderTopWidth: 6,
+    borderTopColor: 'transparent',
+    borderBottomWidth: 6,
+    borderBottomColor: 'transparent',
+    borderRightWidth: 7,
+    borderRightColor: '#ffffff',
     zIndex: 2,
   },
-  switchThumbTh: {
-    left: 3,
-    backgroundColor: '#0284c7',
+  speechBubbleArrowBorder: {
+    position: 'absolute',
+    left: -9,
+    top: '50%',
+    marginTop: -7,
+    width: 0,
+    height: 0,
+    borderTopWidth: 7,
+    borderTopColor: 'transparent',
+    borderBottomWidth: 7,
+    borderBottomColor: 'transparent',
+    borderRightWidth: 9,
+    borderRightColor: '#38bdf8',
+    zIndex: 1,
   },
-  switchThumbEn: {
-    right: 3,
-    backgroundColor: '#0369a1',
-  },
-  switchLed: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-  },
-  switchLedTh: {
-    backgroundColor: '#38bdf8',
-    shadowColor: '#38bdf8',
-  },
-  switchLedEn: {
-    backgroundColor: '#a7f3d0',
-    shadowColor: '#10b981',
-  },
-  switchThumbText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  switchLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    alignItems: 'center',
-  },
-  switchLabelText: {
-    fontSize: 10,
+  speechBubbleText: {
+    color: '#0f172a',
+    fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
-  },
-  switchLabelHidden: {
-    opacity: 0,
+    textAlign: 'left',
+    lineHeight: 17,
   },
   carCard: {
     backgroundColor: '#111827',
@@ -587,6 +528,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1e293b',
     marginBottom: 16,
+    zIndex: 1,
   },
   carBadgeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   activeTag: { fontSize: 11, color: '#10b981', fontWeight: 'bold' },

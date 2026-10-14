@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeStorage } from '../lib/safeStorage';
+
+import { LanguageProvider, useLanguage } from '../lib/LanguageContext';
 
 export default function RootLayout() {
+  return (
+    <LanguageProvider>
+      <RootTabs />
+    </LanguageProvider>
+  );
+}
+
+function RootTabs() {
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, 8);
+  const { lang } = useLanguage();
 
   return (
     <>
@@ -17,32 +29,42 @@ export default function RootLayout() {
           tabBarStyle: {
             backgroundColor: '#0f172a',
             borderTopColor: '#1e293b',
-            height: 52 + bottomInset,
-            paddingBottom: bottomInset,
-            paddingTop: 6,
+            height: 60 + bottomInset,
+            paddingBottom: Math.max(bottomInset, 10),
+            paddingTop: 8,
           },
           tabBarActiveTintColor: '#38bdf8',
           tabBarInactiveTintColor: '#94a3b8',
           tabBarLabelStyle: {
-            fontSize: 10.5,
+            fontSize: 11,
             fontWeight: '600',
+            marginTop: 2,
           },
         }}
       >
-        {/* 3 Main Visible Tabs */}
+        {/* 4 Main Visible Tabs */}
         <Tabs.Screen
           name="index"
           options={{
-            title: 'หน้าแรก',
+            title: lang === 'th' ? 'หน้าแรก' : 'Home',
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'home' : 'home-outline'} size={21} color={color} />
             ),
           }}
         />
         <Tabs.Screen
+          name="logs"
+          options={{
+            title: lang === 'th' ? 'บันทึกงาน DIY' : 'DIY Logs',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'clipboard' : 'clipboard-outline'} size={21} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="fluids"
           options={{
-            title: 'สเปคของเหลว',
+            title: lang === 'th' ? 'สเปคของเหลว' : 'Fluid Specs',
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'water' : 'water-outline'} size={21} color={color} />
             ),
@@ -51,7 +73,7 @@ export default function RootLayout() {
         <Tabs.Screen
           name="more"
           options={{
-            title: 'อื่นๆ',
+            title: lang === 'th' ? 'อื่นๆ' : 'More',
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'grid' : 'grid-outline'} size={21} color={color} />
             ),
@@ -72,12 +94,6 @@ export default function RootLayout() {
           }}
         />
         <Tabs.Screen
-          name="logs"
-          options={{
-            href: null,
-          }}
-        />
-        <Tabs.Screen
           name="explore"
           options={{
             href: null,
@@ -87,4 +103,3 @@ export default function RootLayout() {
     </>
   );
 }
-

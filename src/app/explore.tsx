@@ -4,15 +4,17 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getUserVehicles, getMaintenanceLogs } from '../lib/storage';
+import { useLanguage } from '../lib/LanguageContext';
 
 export default function StatusScreen() {
+  const { lang } = useLanguage();
   const [dbStatus, setDbStatus] = useState<string>('กำลังตรวจสอบ...');
   const [tableStatus, setTableStatus] = useState<Record<string, boolean>>({});
   const [vehicleCount, setVehicleCount] = useState<number>(0);
@@ -59,11 +61,13 @@ export default function StatusScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>สถานะระบบ & Supabase</Text>
-          <Text style={styles.subtitle}>ตรวจสอบความพร้อมของฐานข้อมูลและคลาวด์</Text>
+        <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>{lang === 'th' ? 'สถานะระบบ & Supabase' : 'System & Supabase Status'}</Text>
+            <Text style={styles.subtitle}>{lang === 'th' ? 'ตรวจสอบความพร้อมของฐานข้อมูลและคลาวด์' : 'Check database and cloud service health'}</Text>
+          </View>
         </View>
 
         {/* Supabase Status Card */}

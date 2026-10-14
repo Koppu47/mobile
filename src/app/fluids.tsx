@@ -5,15 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   RefreshControl,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getUserVehicles, getActiveVehicleId, onActiveVehicleChange, onVehiclesChange } from '../lib/storage';
 import { UserVehicle, FluidCategoryKey, FluidSpecification } from '../types';
 import { getFluidRequirementsForVariant } from '../data/seedData';
+import { useLanguage } from '../lib/LanguageContext';
 
 interface FluidCategoryMeta {
   key: FluidCategoryKey;
@@ -35,11 +36,49 @@ const FLUID_CATEGORIES: FluidCategoryMeta[] = [
 
 export default function FluidsScreen() {
   const router = useRouter();
+  const { lang } = useLanguage();
   const [vehicles, setVehicles] = useState<UserVehicle[]>([]);
   const [activeCar, setActiveCar] = useState<UserVehicle | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const ALL_CATEGORY_KEYS = FLUID_CATEGORIES.map((c) => c.key);
+  const [selectedCategories, setSelectedCategories] = useState<FluidCategoryKey[]>(ALL_CATEGORY_KEYS);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [tempSelectedCategories, setTempSelectedCategories] = useState<FluidCategoryKey[]>(ALL_CATEGORY_KEYS);
   const [selectedSpec, setSelectedSpec] = useState<{ key: FluidCategoryKey; spec: FluidSpecification } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const isFiltered = selectedCategories.length > 0 && selectedCategories.length < FLUID_CATEGORIES.length;
+
+  const openFilterModal = () => {
+    setTempSelectedCategories([...selectedCategories]);
+    setIsFilterModalOpen(true);
+  };
+
+  const toggleTempCategory = (key: FluidCategoryKey) => {
+    setTempSelectedCategories((prev) => {
+      if (prev.includes(key)) {
+        return prev.filter((k) => k !== key);
+      } else {
+        return [...prev, key];
+      }
+    });
+  };
+
+  const handleClearAll = () => {
+    setTempSelectedCategories([]);
+  };
+
+  const handleCloseFilter = () => {
+    setIsFilterModalOpen(false);
+  };
+
+  const handleApplyFilter = () => {
+    if (tempSelectedCategories.length === 0) {
+      setSelectedCategories(FLUID_CATEGORIES.map((c) => c.key));
+    } else {
+      setSelectedCategories([...tempSelectedCategories]);
+    }
+    setIsFilterModalOpen(false);
+  };
 
   const loadData = useCallback(async () => {
     const list = await getUserVehicles();
@@ -77,21 +116,16 @@ export default function FluidsScreen() {
   const reqs = activeCar ? getFluidRequirementsForVariant(activeCar.variantId) : null;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>สเปกของเหลวและสารหล่อลื่น</Text>
-          <Text style={styles.headerSubtitle}>
-            {activeCar ? `${activeCar.brandName} ${activeCar.modelName} (${activeCar.year})` : 'กำลังโหลด...'}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>
+            {lang === 'th' ? 'สเปคของเหลว' : 'Fluid Specifications'}
+          </Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {activeCar ? `${activeCar.brandName} ${activeCar.modelName} (${activeCar.year})` : (lang === 'th' ? 'กำลังโหลด...' : 'Loading...')}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.switchCarBtn}
-          onPress={() => router.push('/cars')}
-        >
-          <Ionicons name="car-sport" size={16} color="#38bdf8" />
-          <Text style={styles.switchCarText}>เปลี่ยนรถ</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -113,10 +147,6 @@ export default function FluidsScreen() {
             <Text style={styles.carDetails}>
               {activeCar.generationName} • {activeCar.variantName}
             </Text>
-            <View style={styles.carStats}>
-              <Text style={styles.carStatText}>เครื่องยนต์: {activeCar.engineCode}</Text>
-              <Text style={styles.carStatText}>เกียร์: {activeCar.transmissionName}</Text>
-            </View>
           </View>
         )}
 
@@ -128,33 +158,58 @@ export default function FluidsScreen() {
           </Text>
         </View>
 
-        {/* Filter Pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar}>
-          <TouchableOpacity
-            style={[styles.filterChip, selectedFilter === 'all' && styles.filterChipActive]}
-            onPress={() => setSelectedFilter('all')}
-          >
-            <Text style={[styles.filterChipText, selectedFilter === 'all' && styles.filterChipTextActive]}>
-              ทั้งหมด
+        {/* Section Header with Outline / Solid Filter Icon */}
+        <View style={styles.listSectionHeader}>
+          <View style={styles.listSectionLeft}>
+            <Text style={styles.listSectionTitle}>
+              {lang === 'th' ? 'รายการของเหลว' : 'Fluid Specifications'}
             </Text>
+            {isFiltered && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>
+                  {selectedCategories.length} รายการ
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.filterIconBtn,
+              isFiltered && styles.filterIconBtnActive,
+            ]}
+            onPress={openFilterModal}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isFiltered ? 'filter' : 'filter-outline'}
+              size={19}
+              color={isFiltered ? '#ffffff' : '#94a3b8'}
+            />
           </TouchableOpacity>
-          {FLUID_CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat.key}
-              style={[styles.filterChip, selectedFilter === cat.key && styles.filterChipActive]}
-              onPress={() => setSelectedFilter(cat.key)}
-            >
-              <Text style={[styles.filterChipText, selectedFilter === cat.key && styles.filterChipTextActive]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        </View>
 
         {/* Fluid Cards List */}
         {reqs ? (
           <View style={styles.cardsList}>
-            {FLUID_CATEGORIES.filter((cat) => selectedFilter === 'all' || selectedFilter === cat.key).map((cat) => {
+            {FLUID_CATEGORIES.filter((cat) => selectedCategories.includes(cat.key)).length === 0 && (
+              <View style={styles.emptyFilterBox}>
+                <Ionicons name="filter-outline" size={38} color="#475569" />
+                <Text style={styles.emptyFilterTitle}>
+                  {lang === 'th' ? 'ไม่มีรายการที่ตรงกับตัวกรอง' : 'No matching fluid items'}
+                </Text>
+                <TouchableOpacity
+                  style={styles.resetFilterBtn}
+                  onPress={() => setSelectedCategories(FLUID_CATEGORIES.map((c) => c.key))}
+                >
+                  <Text style={styles.resetFilterBtnText}>
+                    {lang === 'th' ? 'แสดงทั้งหมด' : 'Show All'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {FLUID_CATEGORIES.filter((cat) => selectedCategories.includes(cat.key)).map((cat) => {
               const spec = reqs.specs[cat.key];
               if (!spec) return null;
 
@@ -368,6 +423,89 @@ export default function FluidsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={isFilterModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseFilter}
+      >
+        <View style={styles.filterModalOverlay}>
+          <View style={styles.filterModalContent}>
+            {/* Modal Header */}
+            <View style={styles.filterModalHeader}>
+              <View>
+                <Text style={styles.filterModalTitle}>
+                  {lang === 'th' ? 'กรองของเหลว' : 'Filter Fluids'}
+                </Text>
+                <Text style={styles.filterModalSubtitle}>
+                  {lang === 'th'
+                    ? `เลือก ${tempSelectedCategories.length} จาก ${FLUID_CATEGORIES.length} รายการ`
+                    : `Selected ${tempSelectedCategories.length} of ${FLUID_CATEGORIES.length}`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={handleCloseFilter} style={styles.filterCloseBtn} activeOpacity={0.7}>
+                <Ionicons name="close" size={24} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Options List without Bullets */}
+            <ScrollView style={styles.filterModalBody} showsVerticalScrollIndicator={false}>
+              {FLUID_CATEGORIES.map((cat) => {
+                const isSelected = tempSelectedCategories.includes(cat.key);
+                return (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={[
+                      styles.filterRow,
+                      isSelected && styles.filterRowSelected,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => toggleTempCategory(cat.key)}
+                  >
+                    {/* Category Icon */}
+                    <View style={[styles.filterIconCircle, { backgroundColor: `${cat.color}20` }]}>
+                      <Ionicons name={cat.icon} size={18} color={cat.color} />
+                    </View>
+
+                    {/* Category Label */}
+                    <Text style={[styles.filterRowText, isSelected && styles.filterRowTextSelected]}>
+                      {cat.label}
+                    </Text>
+
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={20} color="#38bdf8" style={{ marginLeft: 'auto' }} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Modal Buttons: เคลียร์ทั้งหมด / ตกลง */}
+            <View style={styles.filterModalFooter}>
+              <TouchableOpacity
+                style={styles.filterClearBtn}
+                activeOpacity={0.7}
+                onPress={handleClearAll}
+              >
+                <Text style={styles.filterClearBtnText}>
+                  {lang === 'th' ? 'เคลียร์ทั้งหมด' : 'Clear All'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.filterConfirmBtn}
+                activeOpacity={0.7}
+                onPress={handleApplyFilter}
+              >
+                <Text style={styles.filterConfirmBtnText}>
+                  {lang === 'th' ? 'ตกลง' : 'Apply'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -378,6 +516,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -386,6 +525,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
+    backgroundColor: '#0f172a',
   },
   headerTitle: {
     fontSize: 18,
@@ -456,18 +596,6 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     marginTop: 2,
   },
-  carStats: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
-    paddingTop: 8,
-  },
-  carStatText: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
   warningBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -484,30 +612,180 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     lineHeight: 16,
   },
-  filterBar: {
-    marginVertical: 14,
+  listSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 12,
   },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+  listSectionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  listSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  filterBadge: {
+    backgroundColor: '#0369a1',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  filterBadgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  filterIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     backgroundColor: '#1e293b',
-    borderRadius: 20,
-    marginRight: 8,
     borderWidth: 1,
     borderColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  filterChipActive: {
+  filterIconBtnActive: {
     backgroundColor: '#0284c7',
     borderColor: '#38bdf8',
   },
-  filterChipText: {
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  filterModalContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 18,
+    width: '100%',
+    maxHeight: '82%',
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  filterModalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  filterModalSubtitle: {
+    fontSize: 11.5,
     color: '#94a3b8',
-    fontSize: 12,
+    marginTop: 2,
+  },
+  filterCloseBtn: {
+    padding: 4,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterModalBody: {
+    marginVertical: 14,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#0f172a',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterRowSelected: {
+    backgroundColor: 'rgba(2, 132, 199, 0.12)',
+    borderColor: '#0284c7',
+  },
+  filterIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  filterRowText: {
+    fontSize: 14,
+    color: '#cbd5e1',
     fontWeight: '500',
   },
-  filterChipTextActive: {
+  filterRowTextSelected: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  filterClearBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterClearBtnText: {
+    color: '#cbd5e1',
+    fontWeight: 'bold',
+    fontSize: 13.5,
+  },
+  filterConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#0284c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterConfirmBtnText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 13.5,
+  },
+  emptyFilterBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  emptyFilterTitle: {
+    color: '#94a3b8',
+    fontSize: 13,
+    marginTop: 8,
+    marginBottom: 14,
+  },
+  resetFilterBtn: {
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  resetFilterBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 12,
   },
   cardsList: {
     gap: 12,
