@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   getUserVehicles,
   saveUserVehicle,
+  updateUserVehicle,
   deleteUserVehicle,
   getActiveVehicleId,
   setActiveVehicleId,
@@ -48,6 +49,14 @@ export default function CarsScreen() {
   const [licensePlate, setLicensePlate] = useState('');
   const [color, setColor] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Edit vehicle state
+  const [editingCar, setEditingCar] = useState<UserVehicle | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editNickname, setEditNickname] = useState('');
+  const [editLicensePlate, setEditLicensePlate] = useState('');
+  const [editColor, setEditColor] = useState('');
+  const [editNotes, setEditNotes] = useState('');
 
   const loadVehicles = useCallback(async () => {
     const list = await getUserVehicles();
@@ -93,6 +102,45 @@ export default function CarsScreen() {
         },
       },
     ]);
+  };
+
+  const handleOpenEdit = (car: UserVehicle) => {
+    setEditingCar(car);
+    setEditNickname(car.nickname || '');
+    setEditLicensePlate(car.licensePlate || '');
+    setEditColor(car.color || '');
+    setEditNotes(car.notes || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingCar) return;
+
+    if (!editLicensePlate.trim()) {
+      Alert.alert(
+        lang === 'th' ? 'ข้อมูลไม่ครบถ้วน' : 'Incomplete Information',
+        lang === 'th' ? 'กรุณาระบุเลขทะเบียนรถ' : 'Please specify vehicle license plate'
+      );
+      return;
+    }
+
+    const updatedCar: UserVehicle = {
+      ...editingCar,
+      nickname: editNickname.trim() || `${editingCar.brandName} ${editingCar.modelName}`,
+      licensePlate: editLicensePlate.trim(),
+      color: editColor.trim() || undefined,
+      notes: editNotes.trim() || undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await updateUserVehicle(updatedCar);
+    await loadVehicles();
+    setIsEditModalOpen(false);
+    setEditingCar(null);
+    Alert.alert(
+      lang === 'th' ? 'สำเร็จ' : 'Success',
+      lang === 'th' ? 'บันทึกการแก้ไขข้อมูลรถเรียบร้อยแล้ว' : 'Vehicle details updated successfully'
+    );
   };
 
   const resetWizard = () => {
@@ -172,7 +220,7 @@ export default function CarsScreen() {
             <Ionicons name="arrow-back" size={20} color="#cbd5e1" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>{lang === 'th' ? 'รถของฉัน (My Garage)' : 'My Vehicles'}</Text>
+            <Text style={styles.headerTitle}>{lang === 'th' ? 'รถของฉัน' : 'My Vehicles'}</Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
               {lang === 'th' ? 'จัดการข้อมูลรถยนต์และสลับรถ' : 'Manage & Switch Vehicles'}
             </Text>
@@ -220,13 +268,6 @@ export default function CarsScreen() {
 
               return (
                 <View key={car.id} style={[styles.carCard, isActive && styles.carCardActive]}>
-                  {isActive && (
-                    <View style={styles.activeRibbon}>
-                      <Ionicons name="checkmark-circle" size={14} color="#fff" />
-                      <Text style={styles.activeRibbonText}>รถที่กำลังเลือกใช้งาน</Text>
-                    </View>
-                  )}
-
                   <View style={styles.cardTop}>
                     <View style={styles.brandIconCircle}>
                       <Ionicons name="car-outline" size={24} color="#38bdf8" />
@@ -234,15 +275,23 @@ export default function CarsScreen() {
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <Text style={styles.carName}>{car.nickname}</Text>
                       <Text style={styles.carSpecText}>
-                        {car.brandName} {car.modelName} ({car.year}) • {car.variantName}
+                        {car.brandName} ({car.year})
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => handleDelete(car.id, car.nickname)}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <TouchableOpacity
+                        onPress={() => handleOpenEdit(car)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons name="create-outline" size={20} color="#38bdf8" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDelete(car.id, car.nickname)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <View style={styles.carDetailsBox}>
@@ -258,7 +307,9 @@ export default function CarsScreen() {
                     </View>
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>รหัสเครื่องยนต์:</Text>
-                      <Text style={styles.detailValue}>{car.engineCode}</Text>
+                      <Text style={styles.detailValue}>
+                        {car.engineCode.replace(/\s*\(.*\)/, '').trim()}
+                      </Text>
                     </View>
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>ระบบเกียร์:</Text>
@@ -269,29 +320,23 @@ export default function CarsScreen() {
                   <View style={styles.cardActions}>
                     {!isActive ? (
                       <TouchableOpacity
-                        style={styles.selectBtn}
+                        style={styles.selectCarBtn}
                         onPress={() => handleSelectActive(car.id)}
+                        activeOpacity={0.7}
                       >
-                        <Ionicons name="radio-button-off" size={16} color="#38bdf8" />
-                        <Text style={styles.selectBtnText}>เลือกรถคันนี้</Text>
+                        <Ionicons name="checkmark-circle-outline" size={17} color="#fff" />
+                        <Text style={styles.selectCarBtnText}>
+                          {lang === 'th' ? 'เลือกรถคันนี้' : 'Select This Car'}
+                        </Text>
                       </TouchableOpacity>
                     ) : (
-                      <View style={styles.selectedIndicator}>
-                        <Ionicons name="checkmark-done" size={16} color="#10b981" />
-                        <Text style={styles.selectedIndicatorText}>กำลังใช้งาน</Text>
+                      <View style={styles.activeCarBtn}>
+                        <Ionicons name="checkmark-circle" size={17} color="#10b981" />
+                        <Text style={styles.activeCarBtnText}>
+                          {lang === 'th' ? 'กำลังใช้งาน' : 'In Use'}
+                        </Text>
                       </View>
                     )}
-
-                    <TouchableOpacity
-                      style={styles.viewFluidsBtn}
-                      onPress={async () => {
-                        await handleSelectActive(car.id);
-                        router.push('/fluids');
-                      }}
-                    >
-                      <Ionicons name="water-outline" size={16} color="#fff" />
-                      <Text style={styles.viewFluidsBtnText}>ดูสเปกของเหลว</Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
               );
@@ -498,6 +543,100 @@ export default function CarsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Car Modal */}
+      <Modal
+        visible={isEditModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsEditModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.modalTitle}>
+                  {lang === 'th' ? 'แก้ไขข้อมูลรถ' : 'Edit Vehicle Details'}
+                </Text>
+                <Text style={styles.modalSub} numberOfLines={1}>
+                  {editingCar ? `${editingCar.brandName} ${editingCar.modelName} (${editingCar.year}) • ${editingCar.variantName}` : ''}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsEditModalOpen(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.formContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>{lang === 'th' ? 'ชื่อเรียกรถ (Nickname)' : 'Vehicle Nickname'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editNickname}
+                    onChangeText={setEditNickname}
+                    placeholder="เช่น รถคันโปรด, Vios ขาว"
+                    placeholderTextColor="#64748b"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>{lang === 'th' ? 'เลขทะเบียนรถ' : 'License Plate'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editLicensePlate}
+                    onChangeText={setEditLicensePlate}
+                    placeholder="เช่น 1กข 4589 กทม."
+                    placeholderTextColor="#64748b"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>{lang === 'th' ? 'สีรถ (ไม่บังคับ)' : 'Color (Optional)'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editColor}
+                    onChangeText={setEditColor}
+                    placeholder="เช่น บรอนซ์เงิน, ดำ"
+                    placeholderTextColor="#64748b"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>{lang === 'th' ? 'บันทึกเพิ่มเติม (ไม่บังคับ)' : 'Notes (Optional)'}</Text>
+                  <TextInput
+                    style={[styles.textInput, { height: 75, textAlignVertical: 'top' }]}
+                    value={editNotes}
+                    onChangeText={setEditNotes}
+                    multiline
+                    numberOfLines={3}
+                    placeholder="ประวัติเดิม หรือข้อมูลพิเศษ"
+                    placeholderTextColor="#64748b"
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalBackBtn}
+                onPress={() => setIsEditModalOpen(false)}
+              >
+                <Ionicons name="close" size={18} color="#94a3b8" />
+                <Text style={styles.backBtnText}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.submitBtn} onPress={handleSaveEdit}>
+                <Ionicons name="checkmark" size={18} color="#fff" />
+                <Text style={styles.submitBtnText}>{lang === 'th' ? 'บันทึกการแก้ไข' : 'Save Changes'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       
       {/* Switching Car Loading Modal Popup */}
       <Modal visible={isSwitchingCar} transparent animationType="fade">
@@ -660,48 +799,41 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginTop: 14,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#334155',
   },
-  selectBtn: {
+  selectCarBtn: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  selectBtnText: {
-    color: '#38bdf8',
-    fontSize: 12.5,
-    fontWeight: '600',
-  },
-  selectedIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  selectedIndicatorText: {
-    color: '#10b981',
-    fontSize: 12.5,
-    fontWeight: '600',
-  },
-  viewFluidsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#0284c7',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
     gap: 6,
   },
-  viewFluidsBtnText: {
+  selectCarBtnText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  activeCarBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  activeCarBtnText: {
+    color: '#10b981',
+    fontSize: 13,
     fontWeight: 'bold',
   },
   emptyContainer: {

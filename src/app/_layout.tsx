@@ -6,12 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeStorage } from '../lib/safeStorage';
 
 import { LanguageProvider, useLanguage } from '../lib/LanguageContext';
+import { AuthProvider } from '../lib/AuthContext';
 
 export default function RootLayout() {
   return (
-    <LanguageProvider>
-      <RootTabs />
-    </LanguageProvider>
+    <AuthProvider>
+      <LanguageProvider>
+        <RootTabs />
+      </LanguageProvider>
+    </AuthProvider>
   );
 }
 
@@ -95,6 +98,18 @@ function RootTabs() {
         />
         <Tabs.Screen
           name="explore"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="login"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="language"
           options={{
             href: null,
           }}

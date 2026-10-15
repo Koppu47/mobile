@@ -39,6 +39,7 @@ const RAN_IMAGES = {
   sus: require('../../assets/ran_sus.png'),
   concern: require('../../assets/ran_concern.png'),
 };
+const GARAGE_BG = require('../../assets/garage_bg.jpg');
 const CATEGORIES: { key: FluidCategoryKey | 'parts' | 'other'; label: string }[] = [
   { key: 'engine_oil', label: 'น้ำมันเครื่อง' },
   { key: 'transmission_fluid', label: 'น้ำมันเกียร์' },
@@ -566,15 +567,24 @@ export default function LogsScreen() {
             contentContainerStyle={styles.checkBodyContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Character Stage: Animated Ran with expressions */}
+            {/* Character Stage: Animated Ran with expressions on Garage Background */}
             <View style={styles.characterStage}>
+              <Image
+                source={GARAGE_BG}
+                style={styles.characterBgImage}
+                resizeMode="cover"
+              />
+              <View style={styles.characterBgOverlay} />
               <Animated.View
-                style={{
-                  transform: [
-                    { translateX: animTranslateX },
-                    { translateY: animTranslateY },
-                  ],
-                }}
+                style={[
+                  styles.characterAnimatedContainer,
+                  {
+                    transform: [
+                      { translateX: animTranslateX },
+                      { translateY: animTranslateY },
+                    ],
+                  },
+                ]}
               >
                 <Image
                   source={RAN_IMAGES[characterEmotion]}
@@ -2268,14 +2278,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   characterStage: {
+    width: '100%',
+    height: 250,
+    borderRadius: 20,
+    overflow: 'hidden',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     marginBottom: 0,
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#1e3a5f',
+    backgroundColor: '#0a192f',
     zIndex: 1,
   },
+  characterBgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  characterBgOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10, 25, 47, 0.25)',
+  },
+  characterAnimatedContainer: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   characterImage: {
-    width: 250,
-    height: 250,
+    width: 235,
+    height: 235,
   },
   speechBubble: {
     width: '100%',

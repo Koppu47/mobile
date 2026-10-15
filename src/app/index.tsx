@@ -23,6 +23,7 @@ import {
 import { UserVehicle, ReminderItem, MaintenanceLog } from '../types';
 import { DIY_GUIDES } from '../data/diyGuidesData';
 import { useLanguage } from '../lib/LanguageContext';
+import { useAuth } from '../lib/AuthContext';
 import { MASCOT_DIALOGUES, MascotDialogue } from '../data/mascotDialogues';
 
 const MASCOT_IMAGES = {
@@ -34,6 +35,7 @@ const MASCOT_IMAGES = {
 export default function HomeScreen() {
   const router = useRouter();
   const { lang } = useLanguage();
+  const { user, role, isGuest } = useAuth();
   const [vehicles, setVehicles] = useState<UserVehicle[]>([]);
   const [activeCar, setActiveCar] = useState<UserVehicle | null>(null);
   const [latestLog, setLatestLog] = useState<MaintenanceLog | null>(null);
@@ -62,7 +64,7 @@ export default function HomeScreen() {
 
     if (current) {
       const logs = await getMaintenanceLogs(current.id);
-      logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || (b.mileage || 0) - (a.mileage || 0));
       setLatestLog(logs[0] || null);
       const rems = getRemindersForVehicle(current, logs);
       setReminders(rems);
@@ -116,6 +118,22 @@ export default function HomeScreen() {
               {lang === 'th' ? 'คู่มือของเหลวรถยนต์' : 'Car Fluids Guide'}
             </Text>
           </View>
+          <TouchableOpacity
+            onPress={() => router.push('/login' as any)}
+            style={{
+              padding: 7,
+              borderRadius: 20,
+              backgroundColor: user && !isGuest ? (role === 'admin' ? 'rgba(251, 146, 60, 0.15)' : 'rgba(56, 189, 248, 0.15)') : '#1e293b',
+              borderWidth: 1,
+              borderColor: user && !isGuest ? (role === 'admin' ? 'rgba(251, 146, 60, 0.3)' : 'rgba(56, 189, 248, 0.3)') : '#334155',
+            }}
+          >
+            <Ionicons
+              name="person"
+              size={18}
+              color={role === 'admin' ? '#fb923c' : user && !isGuest ? '#38bdf8' : '#94a3b8'}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -173,7 +191,7 @@ export default function HomeScreen() {
             </Text>
 
             <View style={styles.specsRow}>
-              <View style={[styles.specItem, { flex: 1.3 }]}>
+              <View style={styles.specItem}>
                 <Text style={styles.specLabel}>
                   {lang === 'th' ? 'รายการที่ทำล่าสุด' : 'Latest Service'}
                 </Text>
@@ -181,21 +199,12 @@ export default function HomeScreen() {
                   {latestLog ? latestLog.serviceName : (lang === 'th' ? 'ยังไม่มีประวัติการดูแล' : 'No service history')}
                 </Text>
                 {latestLog && (
-                  <Text style={styles.specDateText}>
-                    {lang === 'th' ? `วันที่: ${latestLog.date}` : `Date: ${latestLog.date}`}
+                  <Text style={styles.specDateText} numberOfLines={1}>
+                    {lang === 'th'
+                      ? `วันที่: ${latestLog.date}${latestLog.mileage != null ? ` • ${latestLog.mileage.toLocaleString()} กม.` : ''}`
+                      : `Date: ${latestLog.date}${latestLog.mileage != null ? ` • ${latestLog.mileage.toLocaleString()} km` : ''}`}
                   </Text>
                 )}
-              </View>
-              <View style={[styles.specItem, { flex: 0.9, paddingLeft: 8 }]}>
-                <Text style={styles.specLabel}>
-                  {lang === 'th' ? 'เครื่องยนต์ / เกียร์' : 'Engine / Transmission'}
-                </Text>
-                <Text style={styles.specVal} numberOfLines={1}>
-                  {activeCar.engineCode}
-                </Text>
-                <Text style={styles.specDateText} numberOfLines={1}>
-                  {lang === 'th' ? `เกียร์ ${activeCar.transmissionName}` : activeCar.transmissionName}
-                </Text>
               </View>
             </View>
 
@@ -211,18 +220,41 @@ export default function HomeScreen() {
           </View>
         </>
       ) : (
-          <TouchableOpacity
-            style={styles.noCarCard}
-            onPress={() => router.push('/cars' as any)}
-          >
-            <Ionicons name="add-circle" size={32} color="#38bdf8" />
-            <Text style={styles.noCarTitle}>
-              {lang === 'th' ? 'ยังไม่มีข้อมูลรถยนต์' : 'No Vehicle Data'}
-            </Text>
-            <Text style={styles.noCarSub}>
-              {lang === 'th' ? 'แตะเพื่อเลือกรุ่นรถของคุณ' : 'Tap to select your vehicle'}
-            </Text>
-          </TouchableOpacity>
+          <View>
+            {/* Mascot Character Banner (ตัวละครตอนยังไม่มีรถ - แตะเปลี่ยนไม่ได้ คงที่ข้อความ) */}
+            <View style={styles.mascotBanner}>
+              <View style={styles.mascotCharWrap}>
+                <Image
+                  source={MASCOT_IMAGES.main01}
+                  style={styles.mascotImage}
+                  resizeMode="contain"
+                />
+              </View>
+
+              <View style={styles.speechBubbleWrap}>
+                <View style={styles.speechBubble}>
+                  <View style={styles.speechBubbleArrowBorder} />
+                  <View style={styles.speechBubbleArrow} />
+                  <Text style={styles.speechBubbleText}>
+                    {lang === 'th' ? 'มาเพิ่มรถของคุณกันเถอะ!' : "Let's add your car!"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.noCarCard}
+              onPress={() => router.push('/cars' as any)}
+            >
+              <Ionicons name="add-circle" size={32} color="#38bdf8" />
+              <Text style={styles.noCarTitle}>
+                {lang === 'th' ? 'ยังไม่มีข้อมูลรถยนต์' : 'No Vehicle Data'}
+              </Text>
+              <Text style={styles.noCarSub}>
+                {lang === 'th' ? 'แตะเพื่อเลือกรุ่นรถของคุณ' : 'Tap to select your vehicle'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Urgent Reminders Alert */}
@@ -536,18 +568,16 @@ const styles = StyleSheet.create({
   carNickname: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 2 },
   carSub: { fontSize: 12, color: '#94a3b8', marginBottom: 12 },
   specsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     backgroundColor: '#0b0f19',
-    padding: 10,
+    padding: 12,
     borderRadius: 12,
     marginBottom: 12,
   },
   specItem: { flex: 1 },
-  specLabel: { fontSize: 10, color: '#64748b' },
+  specLabel: { fontSize: 10.5, color: '#64748b' },
   specVal: { fontSize: 13, color: '#fff', fontWeight: 'bold' },
-  specValHighlight: { fontSize: 12.5, color: '#38bdf8', fontWeight: 'bold', marginTop: 1 },
-  specDateText: { fontSize: 10.5, color: '#94a3b8', marginTop: 1 },
+  specValHighlight: { fontSize: 13, color: '#38bdf8', fontWeight: 'bold', marginTop: 2 },
+  specDateText: { fontSize: 11, color: '#94a3b8', marginTop: 3 },
   selectCarBtn: {
     backgroundColor: '#38bdf8',
     flexDirection: 'row',
@@ -562,7 +592,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  selectCarBtnText: { color: '#0f172a', fontWeight: 'bold', fontSize: 13.5 },
+  selectCarBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13.5 },
   noCarCard: {
     backgroundColor: '#111827',
     borderRadius: 20,

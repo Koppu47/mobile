@@ -1,14 +1,7 @@
 import { SafeStorage } from './safeStorage';
-import { UserVehicle, MaintenanceLog, ReminderItem, ReminderStatus, BasicCheckLog, FluidCategoryKey } from '../types';
+import { UserVehicle, MaintenanceLog, ReminderItem, ReminderStatus, BasicCheckLog, FluidCategoryKey, UserProfile } from '../types';
 import { getFluidRequirementsForVariant } from '../data/seedData';
-
-const KEYS = {
-  VEHICLES: 'diy_car_fluids_vehicles',
-  ACTIVE_CAR: 'diy_car_fluids_active_car_id',
-  LOGS: 'diy_car_fluids_logs',
-  CHECKS: 'diy_car_fluids_checks',
-  DELETED_CHECKS: 'diy_car_fluids_deleted_checks',
-};
+import { supabase, isSupabaseConfigured } from './supabase';
 
 const DEFAULT_VEHICLES: UserVehicle[] = [
   {
@@ -59,51 +52,248 @@ const DEFAULT_LOGS: MaintenanceLog[] = [
     serviceName: 'เปลี่ยนถ่ายน้ำมันเครื่อง + ไส้กรองแท้',
     date: '2026-06-15',
     mileage: 50000,
-    productName: 'Toyota Genuine 0W-20 SP',
+    productName: 'Toyota Genuine Motor Oil SAE 0W-20 SP',
     volumeLitres: 3.6,
     costThb: 1450,
-    notes: 'เปลี่ยนกรองแท้ศูนย์',
+    notes: 'เปลี่ยนพร้อมแหวนรองน็อตถ่ายและกรองน้ำมันเครื่องลูกแท้ศูนย์',
     createdAt: new Date('2026-06-15').toISOString(),
   },
-];
-
-const DEFAULT_CHECKS: BasicCheckLog[] = [
   {
-    id: 'chk-demo-1',
+    id: 'log-2',
     vehicleId: 'car-vios-demo',
-    date: '2026-09-20',
-    mileage: 58000,
-    overallStatus: 'normal',
-    results: [
-      { itemId: 'chk-oil', title: 'ระดับและสภาพน้ำมันเครื่อง', category: 'ของเหลวห้องเครื่อง', rating: 'normal' },
-      { itemId: 'chk-coolant', title: 'ระดับน้ำยาหล่อเย็นในถังพัก', category: 'ของเหลวห้องเครื่อง', rating: 'normal' },
-      { itemId: 'chk-brake', title: 'ระดับน้ำมันเบรก', category: 'ของเหลวห้องเครื่อง', rating: 'normal' },
-      { itemId: 'chk-washer', title: 'ระดับน้ำฉีดกระจก', category: 'ของเหลวห้องเครื่อง', rating: 'normal' },
-      { itemId: 'chk-battery', title: 'ขั้วแบตเตอรี่และคราบขี้เกลือ', category: 'ระบบไฟฟ้าและทัศนวิสัย', rating: 'normal' },
-      { itemId: 'chk-lights', title: 'ไฟส่องสว่างและไฟสัญญาณรอบคัน', category: 'ระบบไฟฟ้าและทัศนวิสัย', rating: 'normal' },
-      { itemId: 'chk-wipers', title: 'สภาพยางใบปัดน้ำฝน', category: 'ระบบไฟฟ้าและทัศนวิสัย', rating: 'caution' },
-      { itemId: 'chk-pressure', title: 'แรงดันลมยาง 4 ล้อ', category: 'ช่วงล่างและยาง', rating: 'normal' },
-      { itemId: 'chk-tread', title: 'ความลึกดอกยางและสภาพยาง', category: 'ช่วงล่างและยาง', rating: 'normal' },
-    ],
-    notes: 'ตรวจเช็กประจำสัปดาห์ปกติ ยางใบปัดน้ำฝนเริ่มแข็งเล็กน้อย',
-    createdAt: new Date('2026-09-20').toISOString(),
+    category: 'windshield_washer',
+    serviceName: 'เติมน้ำยาฉีดกระจกขจัดคราบแมลง',
+    date: '2026-08-01',
+    mileage: 55000,
+    productName: '3M Windshield Washer Fluid',
+    volumeLitres: 2.0,
+    costThb: 120,
+    notes: 'เติมเต็มถังพักน้ำฉีดกระจก',
+    createdAt: new Date('2026-08-01').toISOString(),
+  },
+  {
+    id: 'log-3',
+    vehicleId: 'car-hilux-demo',
+    category: 'engine_oil',
+    serviceName: 'เปลี่ยนน้ำมันเครื่องเกรดสังเคราะห์แท้ Low SAPS',
+    date: '2026-05-20',
+    mileage: 35000,
+    productName: 'Castrol Magnatec Diesel 5W-30 ACEA C2',
+    volumeLitres: 7.5,
+    costThb: 2600,
+    notes: 'เปลี่ยนไส้กรองและตรวจเช็กระบบ DPF',
+    createdAt: new Date('2026-05-20').toISOString(),
+  },
+  {
+    id: 'log-4',
+    vehicleId: 'car-hilux-demo',
+    category: 'differential_oil',
+    serviceName: 'เปลี่ยนถ่ายน้ำมันเฟืองท้ายหน้า-หลัง',
+    date: '2026-07-10',
+    mileage: 40000,
+    productName: 'Toyota Differential Gear Oil LT 75W-85 GL-5',
+    volumeLitres: 4.8,
+    costThb: 1850,
+    notes: 'ถ่ายครบทั้งลูกหน้าและลูกหลังตามระยะ 40,000 กม.',
+    createdAt: new Date('2026-07-10').toISOString(),
   },
 ];
 
+async function getActiveAuthUser(): Promise<UserProfile | null> {
+  try {
+    const raw = await SafeStorage.getItem('carservices_active_auth_profile');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.id ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getStorageKeys() {
+  const user = await getActiveAuthUser();
+  const isGuest = !user || !user.id || user.id === 'guest';
+  const suffix = isGuest ? '_guest' : `_user_${user.id}`;
+
+  return {
+    isGuest,
+    userId: isGuest ? undefined : user.id,
+    VEHICLES: `diy_car_fluids_vehicles${suffix}`,
+    ACTIVE_CAR: `diy_car_fluids_active_car_id${suffix}`,
+    LOGS: `diy_car_fluids_logs${suffix}`,
+    CHECKS: `diy_car_fluids_checks${suffix}`,
+    DELETED_CHECKS: `diy_car_fluids_deleted_checks${suffix}`,
+  };
+}
+
+export function isRealSupabaseUser(userId?: string): boolean {
+  if (!userId || userId === 'guest' || userId.startsWith('demo-')) {
+    return false;
+  }
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+}
+
+function mapDbToVehicle(row: any): UserVehicle {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    nickname: row.nickname || '',
+    licensePlate: row.license_plate,
+    brandName: row.brand_name,
+    modelName: row.model_name,
+    generationName: row.generation_name,
+    year: Number(row.year),
+    variantName: row.variant_name,
+    engineCode: row.engine_code,
+    transmissionName: row.transmission_name,
+    driveType: row.drive_type,
+    currentMileage: Number(row.current_mileage || 0),
+    color: row.color,
+    notes: row.notes,
+    variantId: row.variant_id,
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
+
+function mapVehicleToDb(vehicle: UserVehicle, userId?: string) {
+  return {
+    id: vehicle.id,
+    user_id: userId || vehicle.user_id || null,
+    nickname: vehicle.nickname || '',
+    license_plate: vehicle.licensePlate,
+    brand_name: vehicle.brandName,
+    model_name: vehicle.modelName,
+    generation_name: vehicle.generationName,
+    year: vehicle.year,
+    variant_name: vehicle.variantName,
+    engine_code: vehicle.engineCode,
+    transmission_name: vehicle.transmissionName,
+    drive_type: vehicle.driveType,
+    current_mileage: vehicle.currentMileage,
+    color: vehicle.color || '',
+    notes: vehicle.notes || '',
+    variant_id: vehicle.variantId,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function mapDbToLog(row: any): MaintenanceLog {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    vehicleId: row.vehicle_id,
+    category: row.category,
+    serviceName: row.service_name,
+    date: row.date,
+    mileage: Number(row.mileage),
+    productName: row.product_name,
+    volumeLitres: row.volume_litres ? Number(row.volume_litres) : undefined,
+    costThb: Number(row.cost_thb || 0),
+    notes: row.notes,
+    receiptUrl: row.photo_url,
+    createdAt: row.created_at,
+  };
+}
+
+function mapLogToDb(log: MaintenanceLog, userId?: string) {
+  return {
+    id: log.id,
+    user_id: userId || log.user_id || null,
+    vehicle_id: log.vehicleId,
+    category: log.category,
+    service_name: log.serviceName,
+    date: log.date,
+    mileage: log.mileage,
+    product_name: log.productName || '',
+    volume_litres: log.volumeLitres ?? null,
+    cost_thb: log.costThb ?? 0,
+    notes: log.notes ?? '',
+    photo_url: log.receiptUrl ?? null,
+  };
+}
+
+// Background Supabase Sync
+let isSyncingVehiclesMobile = false;
+async function syncVehiclesFromSupabase(userId?: string) {
+  if (!isRealSupabaseUser(userId) || !isSupabaseConfigured() || isSyncingVehiclesMobile) return;
+  isSyncingVehiclesMobile = true;
+  try {
+    const { data, error } = await supabase
+      .from('user_vehicles')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      const mapped = data.map(mapDbToVehicle);
+      const keys = await getStorageKeys();
+      if (keys.userId === userId) {
+        await SafeStorage.setItem(keys.VEHICLES, JSON.stringify(mapped));
+        vehiclesListListeners.forEach((fn) => fn());
+      }
+    }
+  } catch (err) {
+    console.error('Mobile vehicle sync error:', err);
+  } finally {
+    isSyncingVehiclesMobile = false;
+  }
+}
+
+let isSyncingLogsMobile = false;
+async function syncLogsFromSupabase(userId?: string) {
+  if (!isRealSupabaseUser(userId) || !isSupabaseConfigured() || isSyncingLogsMobile) return;
+  isSyncingLogsMobile = true;
+  try {
+    const { data, error } = await supabase
+      .from('maintenance_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    if (!error && data) {
+      const mapped = data.map(mapDbToLog);
+      const keys = await getStorageKeys();
+      if (keys.userId === userId) {
+        await SafeStorage.setItem(keys.LOGS, JSON.stringify(mapped));
+      }
+    }
+  } catch (err) {
+    console.error('Mobile log sync error:', err);
+  } finally {
+    isSyncingLogsMobile = false;
+  }
+}
+
 // ==========================================
-// 1. User Vehicles (Local-First)
+// 1. User Vehicles (Local & Cloud Sync)
 // ==========================================
 
 export async function getUserVehicles(): Promise<UserVehicle[]> {
   try {
-    const raw = await SafeStorage.getItem(KEYS.VEHICLES);
+    const keys = await getStorageKeys();
+    const raw = await SafeStorage.getItem(keys.VEHICLES);
+
     if (!raw) {
-      await SafeStorage.setItem(KEYS.VEHICLES, JSON.stringify(DEFAULT_VEHICLES));
-      return DEFAULT_VEHICLES;
+      if (keys.isGuest) {
+        await SafeStorage.setItem(keys.VEHICLES, JSON.stringify(DEFAULT_VEHICLES));
+        return DEFAULT_VEHICLES;
+      } else {
+        await SafeStorage.setItem(keys.VEHICLES, JSON.stringify([]));
+        if (isRealSupabaseUser(keys.userId)) {
+          syncVehiclesFromSupabase(keys.userId);
+        }
+        return [];
+      }
     }
-    return JSON.parse(raw);
+
+    const list: UserVehicle[] = JSON.parse(raw);
+    if (!keys.isGuest && isRealSupabaseUser(keys.userId)) {
+      syncVehiclesFromSupabase(keys.userId);
+    }
+    return list;
   } catch {
-    return DEFAULT_VEHICLES;
+    return [];
   }
 }
 
@@ -128,223 +318,265 @@ export function onVehiclesChange(listener: VehiclesListChangeListener): () => vo
 }
 
 export async function saveUserVehicle(vehicle: UserVehicle): Promise<void> {
+  const keys = await getStorageKeys();
   const current = await getUserVehicles();
   const index = current.findIndex((v) => v.id === vehicle.id);
+  const vehicleWithUser: UserVehicle = {
+    ...vehicle,
+    user_id: keys.userId || vehicle.user_id,
+    updatedAt: new Date().toISOString(),
+  };
+
   let updated: UserVehicle[];
   if (index >= 0) {
     updated = [...current];
-    updated[index] = { ...vehicle, updatedAt: new Date().toISOString() };
+    updated[index] = vehicleWithUser;
   } else {
-    updated = [vehicle, ...current];
+    updated = [vehicleWithUser, ...current];
   }
-  await SafeStorage.setItem(KEYS.VEHICLES, JSON.stringify(updated));
+  await SafeStorage.setItem(keys.VEHICLES, JSON.stringify(updated));
   await setActiveVehicleId(vehicle.id);
-  vehiclesListListeners.forEach((l) => {
-    try {
-      l();
-    } catch {}
-  });
+  vehiclesListListeners.forEach((fn) => fn());
+
+  if (!keys.isGuest && isRealSupabaseUser(keys.userId) && isSupabaseConfigured()) {
+    const payload = mapVehicleToDb(vehicleWithUser, keys.userId);
+    supabase.from('user_vehicles').upsert(payload).then(({ error }) => {
+      if (error) console.error('Error saving vehicle to Supabase mobile:', error);
+    });
+  }
+}
+
+export async function updateUserVehicle(vehicle: UserVehicle): Promise<void> {
+  const keys = await getStorageKeys();
+  const current = await getUserVehicles();
+  const index = current.findIndex((v) => v.id === vehicle.id);
+  if (index < 0) return;
+
+  const vehicleWithUser: UserVehicle = {
+    ...vehicle,
+    user_id: keys.userId || vehicle.user_id,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const updated = [...current];
+  updated[index] = vehicleWithUser;
+  await SafeStorage.setItem(keys.VEHICLES, JSON.stringify(updated));
+  vehiclesListListeners.forEach((fn) => fn());
+
+  if (!keys.isGuest && isRealSupabaseUser(keys.userId) && isSupabaseConfigured()) {
+    const payload = mapVehicleToDb(vehicleWithUser, keys.userId);
+    supabase.from('user_vehicles').upsert(payload).then(({ error }) => {
+      if (error) console.error('Error updating vehicle to Supabase mobile:', error);
+    });
+  }
 }
 
 export async function deleteUserVehicle(id: string): Promise<void> {
+  const keys = await getStorageKeys();
   const current = await getUserVehicles();
-  const updated = current.filter((v) => v.id !== id);
-  await SafeStorage.setItem(KEYS.VEHICLES, JSON.stringify(updated));
+  const list = current.filter((v) => v.id !== id);
+  await SafeStorage.setItem(keys.VEHICLES, JSON.stringify(list));
+  vehiclesListListeners.forEach((fn) => fn());
+
+  // Cascade delete maintenance logs & clean orphans
+  const existingIds = new Set(list.map((v) => v.id));
+  const currentLogs = await getMaintenanceLogs();
+  const logs = currentLogs.filter((l) => l.vehicleId !== id && existingIds.has(l.vehicleId));
+  await SafeStorage.setItem(keys.LOGS, JSON.stringify(logs));
+
+  // Cascade delete basic check logs & clean orphans
+  const currentChecks = await getCheckLogs();
+  const checks = currentChecks.filter((c) => c.vehicleId !== id && existingIds.has(c.vehicleId));
+  await SafeStorage.setItem(keys.CHECKS, JSON.stringify(checks));
+
   const activeId = await getActiveVehicleId();
-  if (activeId === id && updated.length > 0) {
-    await setActiveVehicleId(updated[0].id);
+  if (activeId === id) {
+    if (list.length > 0) {
+      await setActiveVehicleId(list[0].id);
+    } else {
+      await SafeStorage.removeItem(keys.ACTIVE_CAR);
+      activeVehicleListeners.forEach((fn) => fn(''));
+    }
   }
-  vehiclesListListeners.forEach((l) => {
-    try {
-      l();
-    } catch {}
-  });
+
+  if (!keys.isGuest && isRealSupabaseUser(keys.userId) && isSupabaseConfigured()) {
+    supabase
+      .from('user_vehicles')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', keys.userId)
+      .then(({ error }) => {
+        if (error) console.error('Error deleting vehicle from Supabase mobile:', error);
+      });
+  }
 }
 
 export async function getActiveVehicleId(): Promise<string> {
-  const saved = await SafeStorage.getItem(KEYS.ACTIVE_CAR);
+  const keys = await getStorageKeys();
+  const saved = await SafeStorage.getItem(keys.ACTIVE_CAR);
   if (saved) return saved;
+
   const list = await getUserVehicles();
   if (list.length > 0) {
-    await SafeStorage.setItem(KEYS.ACTIVE_CAR, list[0].id);
+    await SafeStorage.setItem(keys.ACTIVE_CAR, list[0].id);
     return list[0].id;
   }
   return '';
 }
 
 export async function setActiveVehicleId(id: string): Promise<void> {
-  await SafeStorage.setItem(KEYS.ACTIVE_CAR, id);
-  activeVehicleListeners.forEach((listener) => {
-    try {
-      listener(id);
-    } catch (e) {
-      console.warn('activeVehicleListener error:', e);
-    }
-  });
+  const keys = await getStorageKeys();
+  await SafeStorage.setItem(keys.ACTIVE_CAR, id);
+  activeVehicleListeners.forEach((fn) => fn(id));
 }
 
 // ==========================================
-// 2. Maintenance Logs (Local-First)
+// 2. Maintenance Logs
 // ==========================================
 
 export async function getMaintenanceLogs(vehicleId?: string): Promise<MaintenanceLog[]> {
   try {
-    const raw = await SafeStorage.getItem(KEYS.LOGS);
-    const list: MaintenanceLog[] = raw ? JSON.parse(raw) : DEFAULT_LOGS;
-    if (vehicleId) return list.filter((l) => l.vehicleId === vehicleId);
-    return list;
+    const keys = await getStorageKeys();
+    const raw = await SafeStorage.getItem(keys.LOGS);
+    if (!raw) {
+      if (keys.isGuest) {
+        await SafeStorage.setItem(keys.LOGS, JSON.stringify(DEFAULT_LOGS));
+        return vehicleId ? DEFAULT_LOGS.filter((l) => l.vehicleId === vehicleId) : DEFAULT_LOGS;
+      } else {
+        await SafeStorage.setItem(keys.LOGS, JSON.stringify([]));
+        if (isRealSupabaseUser(keys.userId)) {
+          syncLogsFromSupabase(keys.userId);
+        }
+        return [];
+      }
+    }
+    const list: MaintenanceLog[] = JSON.parse(raw);
+    if (!keys.isGuest && isRealSupabaseUser(keys.userId)) {
+      syncLogsFromSupabase(keys.userId);
+    }
+
+    // Filter out orphaned logs if any exist (defense-in-depth)
+    const vehicles = await getUserVehicles();
+    const vehicleIdSet = new Set(vehicles.map((v) => v.id));
+    const validLogs = list.filter((l) => vehicleIdSet.has(l.vehicleId));
+    if (validLogs.length !== list.length) {
+      await SafeStorage.setItem(keys.LOGS, JSON.stringify(validLogs));
+    }
+
+    if (vehicleId) {
+      return validLogs.filter((l) => l.vehicleId === vehicleId);
+    }
+    return validLogs;
   } catch {
-    return DEFAULT_LOGS;
+    return [];
   }
 }
 
 export async function addMaintenanceLog(log: MaintenanceLog): Promise<void> {
+  const keys = await getStorageKeys();
   const current = await getMaintenanceLogs();
-  const updated = [log, ...current];
-  await SafeStorage.setItem(KEYS.LOGS, JSON.stringify(updated));
+  const logWithUser: MaintenanceLog = {
+    ...log,
+    user_id: keys.userId || log.user_id,
+  };
+  const updated = [logWithUser, ...current];
+  await SafeStorage.setItem(keys.LOGS, JSON.stringify(updated));
+
+  const vehicles = await getUserVehicles();
+  const v = vehicles.find((x) => x.id === log.vehicleId);
+  if (v && log.mileage > v.currentMileage) {
+    await saveUserVehicle({ ...v, currentMileage: log.mileage });
+  }
+
+  if (!keys.isGuest && isRealSupabaseUser(keys.userId) && isSupabaseConfigured()) {
+    const payload = mapLogToDb(logWithUser, keys.userId);
+    supabase.from('maintenance_logs').upsert(payload).then(({ error }) => {
+      if (error) console.error('Error saving log to Supabase mobile:', error);
+    });
+  }
 }
 
 export async function updateMaintenanceLog(log: MaintenanceLog): Promise<void> {
+  const keys = await getStorageKeys();
   const current = await getMaintenanceLogs();
-  const updated = current.map((l) => (l.id === log.id ? log : l));
-  await SafeStorage.setItem(KEYS.LOGS, JSON.stringify(updated));
+  const updated = current.map((l) => (l.id === log.id ? { ...log, user_id: keys.userId || log.user_id } : l));
+  await SafeStorage.setItem(keys.LOGS, JSON.stringify(updated));
+
+  const vehicles = await getUserVehicles();
+  const v = vehicles.find((x) => x.id === log.vehicleId);
+  if (v && log.mileage > v.currentMileage) {
+    await saveUserVehicle({ ...v, currentMileage: log.mileage });
+  }
+
+  if (!keys.isGuest && isRealSupabaseUser(keys.userId) && isSupabaseConfigured()) {
+    const payload = mapLogToDb(log, keys.userId);
+    supabase.from('maintenance_logs').upsert(payload).then(({ error }) => {
+      if (error) console.error('Error updating log to Supabase mobile:', error);
+    });
+  }
 }
 
 export async function deleteMaintenanceLog(id: string): Promise<void> {
+  const keys = await getStorageKeys();
   const current = await getMaintenanceLogs();
   const updated = current.filter((l) => l.id !== id);
-  await SafeStorage.setItem(KEYS.LOGS, JSON.stringify(updated));
-}
+  await SafeStorage.setItem(keys.LOGS, JSON.stringify(updated));
 
-// ==========================================
-// 3. Basic Vehicle Checks (Local-First)
-// ==========================================
-
-export async function getBasicCheckLogs(vehicleId?: string): Promise<BasicCheckLog[]> {
-  let deletedIds: string[] = [];
-  try {
-    const rawDeleted = await SafeStorage.getItem(KEYS.DELETED_CHECKS);
-    if (rawDeleted) deletedIds = JSON.parse(rawDeleted);
-  } catch {}
-
-  const sortLogs = (list: BasicCheckLog[]) => {
-    return list.sort((a, b) => {
-      const timeA = new Date(a.createdAt || a.date).getTime();
-      const timeB = new Date(b.createdAt || b.date).getTime();
-      return timeB - timeA;
-    });
-  };
-
-  try {
-    const raw = await SafeStorage.getItem(KEYS.CHECKS);
-    if (raw !== null) {
-      const list: BasicCheckLog[] = JSON.parse(raw);
-      const filtered = list.filter((c) => !deletedIds.includes(c.id));
-      const target = vehicleId ? filtered.filter((c) => c.vehicleId === vehicleId) : filtered;
-      return sortLogs(target);
-    }
-    const defFiltered = DEFAULT_CHECKS.filter((c) => !deletedIds.includes(c.id));
-    const target = vehicleId ? defFiltered.filter((c) => c.vehicleId === vehicleId) : defFiltered;
-    return sortLogs(target);
-  } catch {
-    const defFiltered = DEFAULT_CHECKS.filter((c) => !deletedIds.includes(c.id));
-    return sortLogs(defFiltered);
+  if (!keys.isGuest && isRealSupabaseUser(keys.userId) && isSupabaseConfigured()) {
+    supabase
+      .from('maintenance_logs')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', keys.userId)
+      .then(({ error }) => {
+        if (error) console.error('Error deleting log from Supabase mobile:', error);
+      });
   }
 }
 
-export async function saveBasicCheckLog(log: BasicCheckLog): Promise<void> {
-  try {
-    const rawDeleted = await SafeStorage.getItem(KEYS.DELETED_CHECKS);
-    if (rawDeleted) {
-      const deletedIds: string[] = JSON.parse(rawDeleted);
-      const cleaned = deletedIds.filter((dId) => dId !== log.id);
-      await SafeStorage.setItem(KEYS.DELETED_CHECKS, JSON.stringify(cleaned));
-    }
-  } catch {}
-
-  const current = await getBasicCheckLogs();
-  const index = current.findIndex((c) => c.id === log.id);
-  let updated: BasicCheckLog[];
-  if (index >= 0) {
-    updated = [...current];
-    updated[index] = log;
-  } else {
-    updated = [log, ...current];
-  }
-  updated.sort((a, b) => {
-    const timeA = new Date(a.createdAt || a.date).getTime();
-    const timeB = new Date(b.createdAt || b.date).getTime();
-    return timeB - timeA;
-  });
-  await SafeStorage.setItem(KEYS.CHECKS, JSON.stringify(updated));
-}
-
-export async function deleteBasicCheckLog(id: string): Promise<void> {
-  let deletedIds: string[] = [];
-  try {
-    const rawDeleted = await SafeStorage.getItem(KEYS.DELETED_CHECKS);
-    if (rawDeleted) deletedIds = JSON.parse(rawDeleted);
-  } catch {}
-  if (!deletedIds.includes(id)) {
-    deletedIds.push(id);
-    await SafeStorage.setItem(KEYS.DELETED_CHECKS, JSON.stringify(deletedIds));
-  }
-
-  const current = await getBasicCheckLogs();
-  const updated = current.filter((c) => c.id !== id);
-  await SafeStorage.setItem(KEYS.CHECKS, JSON.stringify(updated));
-}
-
 // ==========================================
-// 4. Reminders Calculator
+// 3. Reminders Calculation
 // ==========================================
 
-export function getRemindersForVehicle(
-  vehicle: UserVehicle,
-  logs: MaintenanceLog[]
-): ReminderItem[] {
+export function getRemindersForVehicle(vehicle: UserVehicle, customLogs: MaintenanceLog[] = []): ReminderItem[] {
   const reqs = getFluidRequirementsForVariant(vehicle.variantId);
   if (!reqs) return [];
 
   const reminders: ReminderItem[] = [];
-  const categories = Object.keys(reqs.specs) as FluidCategoryKey[];
+  const categories = Object.keys(reqs.specs) as Array<keyof typeof reqs.specs>;
 
   const titles: Record<string, string> = {
-    engine_oil: 'เปลี่ยนถ่ายน้ำมันเครื่อง & ไส้กรอง',
-    brake_fluid: 'เปลี่ยนถ่ายน้ำมันเบรก',
-    power_steering_fluid: 'เปลี่ยนน้ำมันพวงมาลัยเพาเวอร์',
-    coolant: 'เปลี่ยนถ่ายน้ำยาหล่อเย็น',
-    windshield_washer: 'ตรวจระดับน้ำฉีดกระจก',
-    transmission_fluid: 'เปลี่ยนถ่ายน้ำมันเกียร์',
-    differential_oil: 'เปลี่ยนถ่ายน้ำมันเฟืองท้าย',
-    transfer_case_oil: 'เปลี่ยนถ่ายน้ำมันทรานส์เฟอร์เคส',
+    engine_oil: 'น้ำมันเครื่องและไส้กรอง',
+    transmission_fluid: 'น้ำมันเกียร์',
+    brake_fluid: 'น้ำมันเบรก',
+    coolant: 'น้ำยาหล่อเย็นเครื่องยนต์',
+    power_steering_fluid: 'น้ำมันพวงมาลัยเพาเวอร์',
+    windshield_washer: 'น้ำยาฉีดกระจก',
+    differential_oil: 'น้ำมันเฟืองท้าย',
+    transfer_case_oil: 'น้ำมันทรานส์เฟอร์เคส (4WD)',
   };
 
   for (const cat of categories) {
     const spec = reqs.specs[cat];
     if (spec.isNotApplicable) continue;
 
-    // Filter logs for this fluid and sort latest first
-    const catLogs = logs
+    const catLogs = customLogs
       .filter((l) => l.category === cat)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || (b.mileage || 0) - (a.mileage || 0));
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const latest = catLogs[0];
 
     if (!latest) {
-      // 1. เมื่อเป็นข้อมูลใหม่ (ยังไม่มีประวัติการบันทึก)
       reminders.push({
         id: `rem-${vehicle.id}-${cat}`,
         vehicleId: vehicle.id,
         category: cat,
         title: titles[cat] || String(cat),
         hasRecord: false,
+        dueMileage: 0,
+        dueDate: '',
         status: 'not_recorded',
-        dueMileage: (vehicle.currentMileage || 0) + spec.intervalKm,
-        dueDate: new Date().toISOString().split('T')[0],
-        currentMileage: vehicle.currentMileage || 0,
-        remainingKm: spec.intervalKm,
-        remainingDays: spec.intervalMonths * 30,
+        currentMileage: vehicle.currentMileage,
         intervalKm: spec.intervalKm,
         intervalMonths: spec.intervalMonths,
         standard: spec.standard,
@@ -352,7 +584,6 @@ export function getRemindersForVehicle(
         notes: spec.warningNote,
       });
     } else {
-      // 2. เมื่อบันทึกรายการแล้ว: คำนวณเลขไมล์ครบกำหนดอิงตามเลขไมล์ที่ใส่ไปในบันทึกล่าสุด
       const dueMileage = latest.mileage + spec.intervalKm;
       const lastDate = new Date(latest.date);
       const dueDate = new Date(lastDate);
@@ -393,10 +624,82 @@ export function getRemindersForVehicle(
     }
   }
 
-  // Sort: รายการที่มีบันทึกแล้วขึ้นก่อน, ตามด้วยรายการที่ยังไม่ได้บันทึก
   return reminders.sort((a, b) => {
     if (a.hasRecord && !b.hasRecord) return -1;
     if (!a.hasRecord && b.hasRecord) return 1;
     return 0;
   });
 }
+
+// ==========================================
+// 4. Basic Check Logs
+// ==========================================
+
+export async function getCheckLogs(vehicleId?: string): Promise<BasicCheckLog[]> {
+  try {
+    const keys = await getStorageKeys();
+    const raw = await SafeStorage.getItem(keys.CHECKS);
+    if (!raw) return [];
+    const list: BasicCheckLog[] = JSON.parse(raw);
+
+    // Filter out orphaned check logs if any exist (defense-in-depth)
+    const vehicles = await getUserVehicles();
+    const vehicleIdSet = new Set(vehicles.map((v) => v.id));
+    const validChecks = list.filter((c) => vehicleIdSet.has(c.vehicleId));
+    if (validChecks.length !== list.length) {
+      await SafeStorage.setItem(keys.CHECKS, JSON.stringify(validChecks));
+    }
+
+    if (vehicleId) {
+      return validChecks.filter((c) => c.vehicleId === vehicleId);
+    }
+    return validChecks;
+  } catch {
+    return [];
+  }
+}
+
+export async function addCheckLog(log: BasicCheckLog): Promise<void> {
+  const keys = await getStorageKeys();
+  const current = await getCheckLogs();
+  const updated = [log, ...current];
+  await SafeStorage.setItem(keys.CHECKS, JSON.stringify(updated));
+
+  const vehicles = await getUserVehicles();
+  const v = vehicles.find((x) => x.id === log.vehicleId);
+  if (v && log.mileage > v.currentMileage) {
+    await saveUserVehicle({ ...v, currentMileage: log.mileage });
+  }
+
+  if (!keys.isGuest && isRealSupabaseUser(keys.userId) && isSupabaseConfigured()) {
+    const payload = {
+      id: log.id,
+      user_id: keys.userId,
+      vehicle_id: log.vehicleId,
+      date: log.date,
+      mileage: log.mileage,
+      overall_status: log.overallStatus,
+      results: log.results,
+      notes: log.notes || '',
+    };
+    supabase.from('basic_check_logs').upsert(payload).then(({ error }) => {
+      if (error) console.error('Error saving check log to Supabase mobile:', error);
+    });
+  }
+}
+
+export async function deleteBasicCheckLog(id: string): Promise<void> {
+  const keys = await getStorageKeys();
+  const current = await getCheckLogs();
+  const updated = current.filter((c) => c.id !== id);
+  await SafeStorage.setItem(keys.CHECKS, JSON.stringify(updated));
+
+  if (!keys.isGuest && isRealSupabaseUser(keys.userId) && isSupabaseConfigured()) {
+    supabase.from('basic_check_logs').delete().eq('id', id).eq('user_id', keys.userId).then(({ error }) => {
+      if (error) console.error('Error deleting check log in Supabase mobile:', error);
+    });
+  }
+}
+
+export const getBasicCheckLogs = getCheckLogs;
+export const saveBasicCheckLog = addCheckLog;

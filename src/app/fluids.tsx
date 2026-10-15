@@ -123,7 +123,7 @@ export default function FluidsScreen() {
             {lang === 'th' ? 'สเปคของเหลว' : 'Fluid Specifications'}
           </Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {activeCar ? `${activeCar.brandName} ${activeCar.modelName} (${activeCar.year})` : (lang === 'th' ? 'กำลังโหลด...' : 'Loading...')}
+            {activeCar ? `${activeCar.brandName} ${activeCar.modelName} (${activeCar.year})` : (lang === 'th' ? 'ยังไม่มีข้อมูลรถยนต์' : 'No vehicle')}
           </Text>
         </View>
       </View>
@@ -132,196 +132,215 @@ export default function FluidsScreen() {
         style={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38bdf8" />}
       >
-        {/* Car Info Banner */}
-        {activeCar && (
-          <View style={styles.carBanner}>
-            <View style={styles.carBannerHeader}>
-              <View style={styles.carBadge}>
-                <Text style={styles.carBadgeText}>{activeCar.brandName}</Text>
+        {activeCar && reqs ? (
+          <>
+            {/* Car Info Banner */}
+            <View style={styles.carBanner}>
+              <View style={styles.carBannerHeader}>
+                <View style={styles.carBadge}>
+                  <Text style={styles.carBadgeText}>{activeCar.brandName}</Text>
+                </View>
+                <Text style={styles.carPlate}>{activeCar.licensePlate || 'ไม่มีทะเบียน'}</Text>
               </View>
-              <Text style={styles.carPlate}>{activeCar.licensePlate || 'ไม่มีทะเบียน'}</Text>
+              <Text style={styles.carTitle}>
+                {activeCar.nickname || `${activeCar.brandName} ${activeCar.modelName}`}
+              </Text>
+              <Text style={styles.carDetails}>
+                {activeCar.generationName} • {activeCar.variantName}
+              </Text>
             </View>
-            <Text style={styles.carTitle}>
-              {activeCar.nickname || `${activeCar.brandName} ${activeCar.modelName}`}
-            </Text>
-            <Text style={styles.carDetails}>
-              {activeCar.generationName} • {activeCar.variantName}
-            </Text>
-          </View>
-        )}
 
-        {/* Safety Disclaimer */}
-        <View style={styles.warningBox}>
-          <Ionicons name="shield-checkmark" size={18} color="#f59e0b" style={{ marginRight: 6 }} />
-          <Text style={styles.warningText}>
-            โปรดตรวจสอบคู่มือประจำรถและฉลากก่อนเติมจริงเสมอ ห้ามเปิดฝาหม้อน้ำขณะเครื่องร้อนเด็ดขาด
-          </Text>
-        </View>
+            {/* Safety Disclaimer - Only shown when car and fluid data are present */}
+            <View style={styles.warningBox}>
+              <Ionicons name="shield-checkmark" size={18} color="#f59e0b" style={{ marginRight: 6 }} />
+              <Text style={styles.warningText}>
+                โปรดตรวจสอบคู่มือประจำรถและฉลากก่อนเติมจริงเสมอ ห้ามเปิดฝาหม้อน้ำขณะเครื่องร้อนเด็ดขาด
+              </Text>
+            </View>
 
-        {/* Section Header with Outline / Solid Filter Icon */}
-        <View style={styles.listSectionHeader}>
-          <View style={styles.listSectionLeft}>
-            <Text style={styles.listSectionTitle}>
-              {lang === 'th' ? 'รายการของเหลว' : 'Fluid Specifications'}
-            </Text>
-            {isFiltered && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>
-                  {selectedCategories.length} รายการ
+            {/* Section Header with Outline / Solid Filter Icon */}
+            <View style={styles.listSectionHeader}>
+              <View style={styles.listSectionLeft}>
+                <Text style={styles.listSectionTitle}>
+                  {lang === 'th' ? 'รายการของเหลว' : 'Fluid Specifications'}
                 </Text>
+                {isFiltered && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>
+                      {selectedCategories.length} รายการ
+                    </Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
 
-          <TouchableOpacity
-            style={[
-              styles.filterIconBtn,
-              isFiltered && styles.filterIconBtnActive,
-            ]}
-            onPress={openFilterModal}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={isFiltered ? 'filter' : 'filter-outline'}
-              size={19}
-              color={isFiltered ? '#ffffff' : '#94a3b8'}
-            />
-          </TouchableOpacity>
-        </View>
+              <TouchableOpacity
+                style={[
+                  styles.filterIconBtn,
+                  isFiltered && styles.filterIconBtnActive,
+                ]}
+                onPress={openFilterModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isFiltered ? 'filter' : 'filter-outline'}
+                  size={19}
+                  color={isFiltered ? '#ffffff' : '#94a3b8'}
+                />
+              </TouchableOpacity>
+            </View>
 
-        {/* Fluid Cards List */}
-        {reqs ? (
-          <View style={styles.cardsList}>
-            {FLUID_CATEGORIES.filter((cat) => selectedCategories.includes(cat.key)).length === 0 && (
-              <View style={styles.emptyFilterBox}>
-                <Ionicons name="filter-outline" size={38} color="#475569" />
-                <Text style={styles.emptyFilterTitle}>
-                  {lang === 'th' ? 'ไม่มีรายการที่ตรงกับตัวกรอง' : 'No matching fluid items'}
-                </Text>
-                <TouchableOpacity
-                  style={styles.resetFilterBtn}
-                  onPress={() => setSelectedCategories(FLUID_CATEGORIES.map((c) => c.key))}
-                >
-                  <Text style={styles.resetFilterBtnText}>
-                    {lang === 'th' ? 'แสดงทั้งหมด' : 'Show All'}
+            {/* Fluid Cards List */}
+            <View style={styles.cardsList}>
+              {FLUID_CATEGORIES.filter((cat) => selectedCategories.includes(cat.key)).length === 0 && (
+                <View style={styles.emptyFilterBox}>
+                  <Ionicons name="filter-outline" size={38} color="#475569" />
+                  <Text style={styles.emptyFilterTitle}>
+                    {lang === 'th' ? 'ไม่มีรายการที่ตรงกับตัวกรอง' : 'No matching fluid items'}
                   </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+                  <TouchableOpacity
+                    style={styles.resetFilterBtn}
+                    onPress={() => setSelectedCategories(FLUID_CATEGORIES.map((c) => c.key))}
+                  >
+                    <Text style={styles.resetFilterBtnText}>
+                      {lang === 'th' ? 'แสดงทั้งหมด' : 'Show All'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
-            {FLUID_CATEGORIES.filter((cat) => selectedCategories.includes(cat.key)).map((cat) => {
-              const spec = reqs.specs[cat.key];
-              if (!spec) return null;
+              {FLUID_CATEGORIES.filter((cat) => selectedCategories.includes(cat.key)).map((cat) => {
+                const spec = reqs.specs[cat.key];
+                if (!spec) return null;
 
-              if (spec.isNotApplicable) {
+                if (spec.isNotApplicable) {
+                  return (
+                    <View key={cat.key} style={styles.cardDisabled}>
+                      <View style={styles.cardHeader}>
+                        <View style={[styles.iconCircle, { backgroundColor: '#334155' }]}>
+                          <Ionicons name={cat.icon} size={20} color="#94a3b8" />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={styles.cardTitle}>{cat.label}</Text>
+                          <Text style={styles.disabledReason}>
+                            {spec.notApplicableReason || 'ไม่จำเป็นสำหรับรุ่นนี้ (เช่น พวงมาลัยไฟฟ้า EPS / รถขับหน้า)'}
+                          </Text>
+                        </View>
+                        <View style={styles.statusBadgeGray}>
+                          <Text style={styles.statusTextGray}>ไม่ต้องเติม</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                }
+
                 return (
-                  <View key={cat.key} style={styles.cardDisabled}>
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={styles.card}
+                    activeOpacity={0.7}
+                    onPress={() => setSelectedSpec({ key: cat.key, spec })}
+                  >
                     <View style={styles.cardHeader}>
-                      <View style={[styles.iconCircle, { backgroundColor: '#334155' }]}>
-                        <Ionicons name={cat.icon} size={20} color="#94a3b8" />
+                      <View style={[styles.iconCircle, { backgroundColor: `${cat.color}20` }]}>
+                        <Ionicons name={cat.icon} size={22} color={cat.color} />
                       </View>
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={styles.cardTitle}>{cat.label}</Text>
-                        <Text style={styles.disabledReason}>
-                          {spec.notApplicableReason || 'ไม่จำเป็นสำหรับรุ่นนี้ (เช่น พวงมาลัยไฟฟ้า EPS / รถขับหน้า)'}
+                        <Text style={styles.cardStandard} numberOfLines={1}>
+                          {spec.standard}
                         </Text>
                       </View>
-                      <View style={styles.statusBadgeGray}>
-                        <Text style={styles.statusTextGray}>ไม่ต้องเติม</Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              }
-
-              return (
-                <TouchableOpacity
-                  key={cat.key}
-                  style={styles.card}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedSpec({ key: cat.key, spec })}
-                >
-                  <View style={styles.cardHeader}>
-                    <View style={[styles.iconCircle, { backgroundColor: `${cat.color}20` }]}>
-                      <Ionicons name={cat.icon} size={22} color={cat.color} />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.cardTitle}>{cat.label}</Text>
-                      <Text style={styles.cardStandard} numberOfLines={1}>
-                        {spec.standard}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        spec.verificationStatus === 'verified' ? styles.statusVerified : styles.statusPending,
-                      ]}
-                    >
-                      <Text
+                      <View
                         style={[
-                          styles.statusText,
-                          spec.verificationStatus === 'verified' ? styles.statusTextVerified : styles.statusTextPending,
+                          styles.statusBadge,
+                          spec.verificationStatus === 'verified' ? styles.statusVerified : styles.statusPending,
                         ]}
                       >
-                        {spec.verificationStatus === 'verified' ? 'ยืนยันแล้ว' : 'รอตรวจสอบ'}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.statusText,
+                            spec.verificationStatus === 'verified' ? styles.statusTextVerified : styles.statusTextPending,
+                          ]}
+                        >
+                          {spec.verificationStatus === 'verified' ? 'ยืนยันแล้ว' : 'รอตรวจสอบ'}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
 
-                  <View style={styles.specGrid}>
-                    <View style={styles.specGridItem}>
-                      <Text style={styles.specLabel}>ความหนืด / เกรด</Text>
-                      <Text style={styles.specValue}>{spec.viscosity || 'ตามมาตรฐาน'}</Text>
+                    <View style={styles.specGrid}>
+                      <View style={styles.specGridItem}>
+                        <Text style={styles.specLabel}>ความหนืด / เกรด</Text>
+                        <Text style={styles.specValue}>{spec.viscosity || 'ตามมาตรฐาน'}</Text>
+                      </View>
+                      <View style={styles.specGridItem}>
+                        <Text style={styles.specLabel}>ปริมาณที่ใช้</Text>
+                        <Text style={styles.specValueHighlight}>
+                          {spec.volumeLitres} ลิตร
+                          {spec.volumeWithFilterLitres ? ` (${spec.volumeWithFilterLitres} ล. รวมกรอง)` : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.specGridItem}>
+                        <Text style={styles.specLabel}>ระยะเปลี่ยนถ่าย</Text>
+                        <Text style={styles.specValue}>
+                          {spec.intervalKm > 0 ? `${spec.intervalKm.toLocaleString()} กม.` : 'ตรวจเช็กเป็นประจำ'}
+                        </Text>
+                      </View>
+                      <View style={styles.specGridItem}>
+                        <Text style={styles.specLabel}>ระยะเวลา</Text>
+                        <Text style={styles.specValue}>
+                          {spec.intervalMonths > 0 ? `${spec.intervalMonths} เดือน` : 'ทุกครั้งที่เช็ก'}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.specGridItem}>
-                      <Text style={styles.specLabel}>ปริมาณที่ใช้</Text>
-                      <Text style={styles.specValueHighlight}>
-                        {spec.volumeLitres} ลิตร
-                        {spec.volumeWithFilterLitres ? ` (${spec.volumeWithFilterLitres} ล. รวมกรอง)` : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.specGridItem}>
-                      <Text style={styles.specLabel}>ระยะเปลี่ยนถ่าย</Text>
-                      <Text style={styles.specValue}>
-                        {spec.intervalKm > 0 ? `${spec.intervalKm.toLocaleString()} กม.` : 'ตรวจเช็กเป็นประจำ'}
-                      </Text>
-                    </View>
-                    <View style={styles.specGridItem}>
-                      <Text style={styles.specLabel}>ระยะเวลา</Text>
-                      <Text style={styles.specValue}>
-                        {spec.intervalMonths > 0 ? `${spec.intervalMonths} เดือน` : 'ทุกครั้งที่เช็ก'}
-                      </Text>
-                    </View>
-                  </View>
 
-                  {spec.warningNote ? (
-                    <View style={styles.noteBox}>
-                      <Ionicons name="information-circle-outline" size={15} color="#cbd5e1" style={{ marginRight: 5 }} />
-                      <Text style={styles.noteText} numberOfLines={2}>
-                        {spec.warningNote}
-                      </Text>
-                    </View>
-                  ) : null}
+                    {spec.warningNote ? (
+                      <View style={styles.noteBox}>
+                        <Ionicons name="information-circle-outline" size={15} color="#cbd5e1" style={{ marginRight: 5 }} />
+                        <Text style={styles.noteText} numberOfLines={2}>
+                          {spec.warningNote}
+                        </Text>
+                      </View>
+                    ) : null}
 
-                  <View style={styles.cardFooter}>
-                    <Text style={styles.refText} numberOfLines={1}>
-                      อ้างอิง: {spec.referenceSource?.title || 'คู่มือผู้ใช้ประจำรถ'}
-                    </Text>
-                    <View style={styles.detailLink}>
-                      <Text style={styles.detailLinkText}>ดูรายละเอียด</Text>
-                      <Ionicons name="chevron-forward" size={14} color="#38bdf8" />
+                    <View style={styles.cardFooter}>
+                      <Text style={styles.refText} numberOfLines={1}>
+                        อ้างอิง: {spec.referenceSource?.title || 'คู่มือผู้ใช้ประจำรถ'}
+                      </Text>
+                      <View style={styles.detailLink}>
+                        <Text style={styles.detailLinkText}>ดูรายละเอียด</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#38bdf8" />
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : !activeCar ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="car-outline" size={48} color="#475569" />
+            <Text style={styles.emptyTitle}>
+              {lang === 'th' ? 'ยังไม่มีข้อมูลรถยนต์ของคุณ' : 'No vehicle added yet'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {lang === 'th' ? 'เพิ่มรถยนต์เพื่อดูสเปคของเหลวและอะไหล่สิ้นเปลืองที่ถูกต้องตรงรุ่น' : 'Add your car to view matching fluid specifications and consumables.'}
+            </Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/cars')}>
+              <Text style={styles.primaryBtnText}>
+                {lang === 'th' ? '+ เพิ่มรถยนต์คันแรก' : '+ Add Your Car'}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <Ionicons name="car-outline" size={48} color="#475569" />
-            <Text style={styles.emptyTitle}>ไม่พบข้อมูลของเหลวสำหรับรถคันนี้</Text>
+            <Ionicons name="alert-circle-outline" size={48} color="#f59e0b" />
+            <Text style={styles.emptyTitle}>
+              {lang === 'th' ? 'ไม่พบข้อมูลของเหลวสำหรับรถคันนี้' : 'No fluid data found for this vehicle'}
+            </Text>
             <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/cars')}>
-              <Text style={styles.primaryBtnText}>เลือกรถคันอื่น</Text>
+              <Text style={styles.primaryBtnText}>
+                {lang === 'th' ? 'เลือกรถคันอื่น' : 'Switch Vehicle'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -945,7 +964,16 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     fontSize: 14,
     marginTop: 10,
+    marginBottom: 8,
+    fontWeight: 'bold',
+  },
+  emptySubtitle: {
+    color: '#94a3b8',
+    fontSize: 12,
+    textAlign: 'center',
     marginBottom: 16,
+    paddingHorizontal: 20,
+    lineHeight: 18,
   },
   primaryBtn: {
     backgroundColor: '#0284c7',

@@ -10,10 +10,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../lib/LanguageContext';
+import { useAuth, cleanDisplayName } from '../lib/AuthContext';
+import { LogoutConfirmModal } from '../components/ui/LogoutConfirmModal';
 
 export default function MoreScreen() {
   const router = useRouter();
   const { lang, setLang } = useLanguage();
+  const { user, role, isGuest, logout } = useAuth();
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const services = [
     {
@@ -52,6 +57,28 @@ export default function MoreScreen() {
       iconColor: '#f59e0b',
       route: '/cars',
     },
+    {
+      id: 'language',
+      title: lang === 'th' ? 'ภาษา / Language' : 'Language / ภาษา',
+      desc: lang === 'th' ? 'เปลี่ยนภาษาการแสดงผลของแอปพลิเคชัน' : 'Change display language (Thai / English)',
+      icon: 'globe-outline',
+      iconBg: 'rgba(56, 189, 248, 0.15)',
+      iconColor: '#38bdf8',
+      route: '/language',
+    },
+    ...(role === 'admin'
+      ? [
+          {
+            id: 'admin',
+            title: lang === 'th' ? 'จัดการข้อมูลสเปก (Admin)' : 'Admin Catalog Management',
+            desc: lang === 'th' ? 'จัดการข้อมูลรถ สเปกของเหลว และอะไหล่' : 'Manage vehicle catalog, fluid specs & parts',
+            icon: 'shield-checkmark-outline',
+            iconBg: 'rgba(251, 146, 60, 0.15)',
+            iconColor: '#fb923c',
+            route: '/admin',
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -73,111 +100,96 @@ export default function MoreScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Feature: System Status Highlight Button */}
-        <View style={styles.systemStatusSection}>
-          <View style={styles.statusSectionHeader}>
-            <View style={styles.pulseDot} />
-            <Text style={styles.statusSectionTitle}>ระบบและความพร้อมการทำงาน</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.systemStatusCard}
-            onPress={() => router.push('/explore' as any)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.statusCardLeft}>
-              <View style={styles.statusIconCircle}>
-                <Ionicons name="hardware-chip-outline" size={26} color="#38bdf8" />
+        {/* User Account Profile Card */}
+        <View style={styles.accountCard}>
+          <View style={styles.accountRow}>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}
+              onPress={() => router.push('/login' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={user && !isGuest ? styles.accountAvatar : styles.accountAvatarGuest}>
+                <Ionicons
+                  name="person"
+                  size={22}
+                  color={role === 'admin' ? '#fb923c' : user && !isGuest ? '#38bdf8' : '#94a3b8'}
+                />
               </View>
+
               <View style={{ flex: 1 }}>
-                <View style={styles.statusBadgeRow}>
-                  <Text style={styles.statusCardTitle}>สถานะระบบ & ฐานข้อมูล</Text>
-                  <View style={styles.onlineBadge}>
-                    <Text style={styles.onlineBadgeText}>ONLINE</Text>
+                {user && !isGuest ? (
+                  <>
+                    <Text style={styles.accountName} numberOfLines={1}>
+                      {cleanDisplayName(user.display_name) || user.email}
+                    </Text>
+                    {user.email ? (
+                      <Text style={styles.accountEmail} numberOfLines={1}>
+                        {user.email}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <Text style={styles.accountName}>Guest</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+
+            {user && !isGuest ? (
+              <TouchableOpacity
+                style={styles.logoutBtn}
+                onPress={() => setLogoutModalVisible(true)}
+              >
+                <Ionicons name="log-out-outline" size={14} color="#f43f5e" />
+                <Text style={styles.logoutBtnText}>ออก</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.loginBtnSmall}
+                onPress={() => router.push('/login' as any)}
+              >
+                <Text style={styles.loginBtnSmallText}>เข้าสู่ระบบ</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Feature: System & Security Status (จำกัดเฉพาะ Admin เท่านั้นที่เห็น) */}
+        {role === 'admin' && (
+          <View style={styles.systemStatusSection}>
+            <View style={styles.statusSectionHeader}>
+              <View style={styles.pulseDot} />
+              <Text style={styles.statusSectionTitle}>ระบบและความปลอดภัย</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.systemStatusCard}
+              onPress={() => router.push('/explore' as any)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.statusCardLeft}>
+                <View style={styles.statusIconCircle}>
+                  <Ionicons name="hardware-chip-outline" size={26} color="#38bdf8" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.statusBadgeRow}>
+                    <Text style={styles.statusCardTitle}>สถานะระบบ & ฐานข้อมูล</Text>
+                    <View style={styles.onlineBadge}>
+                      <Text style={styles.onlineBadgeText}>ONLINE</Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={styles.statusCardDesc}>
-                  ตรวจสอบการเชื่อมต่อ Supabase, ตารางข้อมูล และแคชในเครื่อง
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.statusBtnRow}>
-              <Text style={styles.statusBtnText}>แตะเพื่อดูรายงานสถานะระบบ</Text>
-              <Ionicons name="chevron-forward" size={18} color="#38bdf8" />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Feature: Language Selection Menu */}
-        <View style={styles.langSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Ionicons name="globe-outline" size={18} color="#38bdf8" />
-            <Text style={styles.sectionTitle}>
-              {lang === 'th' ? 'เลือกภาษา / Language' : 'Display Language'}
-            </Text>
-          </View>
-
-          <View style={styles.langSettingCard}>
-            <TouchableOpacity
-              style={[
-                styles.langRowItem,
-                lang === 'th' && styles.langRowItemActive,
-              ]}
-              onPress={() => setLang('th')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.langRowLeft}>
-                <View style={[styles.langFlagCircle, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
-                  <Text style={styles.flagEmoji}>🇹🇭</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.langNameText}>ภาษาไทย (Thai)</Text>
-                  <Text style={styles.langDescText}>
-                    แสดงผลและคำแนะนำทั้งหมดเป็นภาษาไทย
+                  <Text style={styles.statusCardDesc}>
+                    ตรวจสอบการเชื่อมต่อ Supabase, ตารางข้อมูล และแคชในเครื่อง
                   </Text>
                 </View>
               </View>
-              {lang === 'th' ? (
-                <View style={styles.langActiveBadge}>
-                  <Ionicons name="checkmark-circle" size={22} color="#38bdf8" />
-                </View>
-              ) : (
-                <View style={styles.langRadioUnchecked} />
-              )}
-            </TouchableOpacity>
 
-            <View style={styles.langDivider} />
-
-            <TouchableOpacity
-              style={[
-                styles.langRowItem,
-                lang === 'en' && styles.langRowItemActive,
-              ]}
-              onPress={() => setLang('en')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.langRowLeft}>
-                <View style={[styles.langFlagCircle, { backgroundColor: 'rgba(56, 189, 248, 0.12)' }]}>
-                  <Text style={styles.flagEmoji}>🇬🇧</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.langNameText}>English (EN)</Text>
-                  <Text style={styles.langDescText}>
-                    Display menus & specifications in English
-                  </Text>
-                </View>
+              <View style={styles.statusBtnRow}>
+                <Text style={styles.statusBtnText}>แตะเพื่อดูรายงานสถานะระบบ</Text>
+                <Ionicons name="chevron-forward" size={18} color="#38bdf8" />
               </View>
-              {lang === 'en' ? (
-                <View style={styles.langActiveBadge}>
-                  <Ionicons name="checkmark-circle" size={22} color="#38bdf8" />
-                </View>
-              ) : (
-                <View style={styles.langRadioUnchecked} />
-              )}
             </TouchableOpacity>
           </View>
-        </View>
+        )}
 
         {/* Services List */}
         <Text style={styles.sectionTitle}>
@@ -211,6 +223,22 @@ export default function MoreScreen() {
           <Text style={styles.footerVersion}>Version 1.0.0 • SQLite & Supabase Sync</Text>
         </View>
       </ScrollView>
+
+      {/* Confirmation Modal for Logout */}
+      <LogoutConfirmModal
+        visible={logoutModalVisible}
+        onClose={() => setLogoutModalVisible(false)}
+        onConfirm={async () => {
+          setLoggingOut(true);
+          try {
+            await logout();
+          } finally {
+            setLoggingOut(false);
+            setLogoutModalVisible(false);
+          }
+        }}
+        loading={loggingOut}
+      />
     </SafeAreaView>
   );
 }
