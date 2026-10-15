@@ -33,6 +33,7 @@ import { getFluidRequirementsForVariant } from '../data/seedData';
 import { BASIC_CHECK_ITEMS, CheckTemplateItem } from '../data/checkTemplates';
 import { useLanguage } from '../lib/LanguageContext';
 import { getVehicleCategoryOptions } from '../lib/vehicleFluids';
+import { DeleteConfirmModal } from '../components/ui/DeleteConfirmModal';
 const RAN_IMAGES = {
   normal: require('../../assets/ran_normal.png'),
   smile: require('../../assets/ran_smile.png'),
@@ -124,6 +125,22 @@ export default function LogsScreen() {
   const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null);
   const hasInitializedExpandedRef = useRef(false);
   const lastActiveCarIdRef = useRef<string | null>(null);
+
+  // Delete Confirmation Modal State
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteModalConfig, setDeleteModalConfig] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => Promise<void>;
+  }>({
+    title: 'ต้องการลบรายการหรือไม่?',
+    message: '',
+    onConfirm: async () => {},
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Cancel Check Modal State
+  const [isCancelCheckModalOpen, setIsCancelCheckModalOpen] = useState(false);
   const loadData = useCallback(async () => {
     const carList = await getUserVehicles();
     setVehicles(carList);
@@ -334,22 +351,21 @@ export default function LogsScreen() {
     setIsLogModalOpen(false);
   };
   const handleDeleteLog = (item: MaintenanceLog) => {
-    Alert.alert(
-      'ยืนยันการลบ',
-      `คุณต้องการลบรายการ "${item.serviceName}" (${item.date}) ออกจากประวัติใช่หรือไม่?`,
-      [
-        { text: 'ยกเลิก', style: 'cancel' },
-        {
-          text: 'ลบรายการ',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteMaintenanceLog(item.id);
-            await loadData();
-            Alert.alert('สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
-          },
-        },
-      ]
-    );
+    setDeleteModalConfig({
+      title: 'ต้องการลบรายการหรือไม่?',
+      message: `คุณต้องการลบรายการ "${item.serviceName}" (${item.date}) ออกจากประวัติใช่หรือไม่?`,
+      onConfirm: async () => {
+        try {
+          setIsDeleting(true);
+          await deleteMaintenanceLog(item.id);
+          await loadData();
+          setDeleteModalVisible(false);
+        } finally {
+          setIsDeleting(false);
+        }
+      },
+    });
+    setDeleteModalVisible(true);
   };
   // ----------------------------------------------------
   // 9-POINT BASIC CHECK HANDLERS
@@ -489,24 +505,23 @@ export default function LogsScreen() {
     Alert.alert('บันทึกสำเร็จ', 'บันทึกผลการตรวจเช็ก 9 จุดรอบใหม่เรียบร้อยแล้ว');
   };
   const handleDeleteCheckLog = (log: BasicCheckLog) => {
-    Alert.alert(
-      'ยืนยันการลบ',
-      `คุณต้องการลบผลการตรวจเช็กสภาพประจำวันที่ "${log.date}" ใช่หรือไม่?`,
-      [
-        { text: 'ยกเลิก', style: 'cancel' },
-        {
-          text: 'ลบรายการ',
-          style: 'destructive',
-          onPress: async () => {
-            setCheckLogs((prev) => prev.filter((item) => item.id !== log.id));
-            if (expandedCheckId === log.id) setExpandedCheckId(null);
-            await deleteBasicCheckLog(log.id);
-            await loadData();
-            Alert.alert('สำเร็จ', 'ลบประวัติการตรวจเช็กเรียบร้อยแล้ว');
-          },
-        },
-      ]
-    );
+    setDeleteModalConfig({
+      title: 'ต้องการลบรายการหรือไม่?',
+      message: `คุณต้องการลบผลการตรวจเช็กสภาพประจำวันที่ "${log.date}" ออกจากระบบใช่หรือไม่?`,
+      onConfirm: async () => {
+        try {
+          setIsDeleting(true);
+          setCheckLogs((prev) => prev.filter((item) => item.id !== log.id));
+          if (expandedCheckId === log.id) setExpandedCheckId(null);
+          await deleteBasicCheckLog(log.id);
+          await loadData();
+          setDeleteModalVisible(false);
+        } finally {
+          setIsDeleting(false);
+        }
+      },
+    });
+    setDeleteModalVisible(true);
   };
   // Expenses Calculations
   const totalCost = logs.reduce((sum, item) => sum + (Number(item.costThb) || 0), 0);
@@ -524,10 +539,7 @@ export default function LogsScreen() {
         animationType="slide"
         statusBarTranslucent
         onRequestClose={() => {
-          Alert.alert('ยกเลิกการตรวจเช็ก', 'ต้องการปิดและกลับสู่หน้าหลักหรือไม่?', [
-            { text: 'ทำต่อ', style: 'cancel' },
-            { text: 'ออก', style: 'destructive', onPress: () => setIsCheckMode(false) },
-          ]);
+          setIsCancelCheckModalOpen(true);
         }}
       >
         <SafeAreaView style={styles.fullscreenCheckContainer} edges={['top', 'bottom']}>
@@ -544,10 +556,7 @@ export default function LogsScreen() {
             <TouchableOpacity
               style={styles.checkHeaderIconBtn}
               onPress={() => {
-                Alert.alert('ยกเลิกการตรวจเช็ก', 'ต้องการปิดและกลับสู่หน้าหลักหรือไม่?', [
-                  { text: 'ทำต่อ', style: 'cancel' },
-                  { text: 'ออก', style: 'destructive', onPress: () => setIsCheckMode(false) },
-                ]);
+                setIsCancelCheckModalOpen(true);
               }}
             >
               <Ionicons name="close" size={22} color="#ffffff" />
@@ -641,6 +650,22 @@ export default function LogsScreen() {
               </View>
             </View>
           </ScrollView>
+
+          {/* Cancel Check Confirmation Popup Modal */}
+          <DeleteConfirmModal
+            visible={isCancelCheckModalOpen}
+            title="ต้องการยกเลิกหรือไม่?"
+            message=""
+            confirmText="ตกลง"
+            cancelText="ยกเลิก"
+            icon="alert-circle-outline"
+            iconColor="#f59e0b"
+            onClose={() => setIsCancelCheckModalOpen(false)}
+            onConfirm={() => {
+              setIsCancelCheckModalOpen(false);
+              setIsCheckMode(false);
+            }}
+          />
         </SafeAreaView>
       </Modal>
     );
@@ -911,71 +936,71 @@ export default function LogsScreen() {
                             <Ionicons name="trash-outline" size={18} color="#ef4444" />
                           </TouchableOpacity>
                         </View>
-                    </View>
-                    {/* Mini Rating Pills Summary */}
-                    <View style={styles.ratingSummaryRow}>
-                      <View style={styles.pillGreen}>
-                        <Text style={styles.pillTextGreen}>{normalCount} ปกติ</Text>
                       </View>
-                      {cautionCount > 0 && (
-                        <View style={styles.pillYellow}>
-                          <Text style={styles.pillTextYellow}>{cautionCount} ควรระวัง</Text>
+                      {/* Mini Rating Pills Summary */}
+                      <View style={styles.ratingSummaryRow}>
+                        <View style={styles.pillGreen}>
+                          <Text style={styles.pillTextGreen}>{normalCount} ปกติ</Text>
                         </View>
-                      )}
-                      {actionCount > 0 && (
-                        <View style={styles.pillRed}>
-                          <Text style={styles.pillTextRed}>{actionCount} ต้องแก้ไข</Text>
-                        </View>
-                      )}
-                      <TouchableOpacity
-                        style={styles.expandToggleBtn}
-                        onPress={() => setExpandedCheckId(isExpanded ? null : log.id)}
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.expandToggleText}>
-                          {isExpanded ? 'ซ่อน 9 จุด' : 'ดูทั้ง 9 จุด'}
-                        </Text>
-                        <Ionicons
-                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={14}
-                          color="#38bdf8"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    {/* Expanded 9 Items List */}
-                    {isExpanded && (
-                      <View style={styles.expandedItemsContainer}>
-                        {log.results.map((res, i) => (
-                          <View key={res.itemId} style={styles.resultItemRow}>
-                            <View style={styles.resultItemNum}>
-                              <Text style={styles.resultItemNumText}>{i + 1}</Text>
-                            </View>
-                            <Text style={styles.resultItemTitle} numberOfLines={1}>
-                              {res.title}
-                            </Text>
-                            {res.rating === 'normal' && (
-                              <View style={styles.tinyBadgeNormal}>
-                                <Ionicons name="checkmark" size={12} color="#10b981" />
-                                <Text style={styles.tinyBadgeNormalText}>ปกติ</Text>
-                              </View>
-                            )}
-                            {res.rating === 'caution' && (
-                              <View style={styles.tinyBadgeCaution}>
-                                <Ionicons name="alert" size={12} color="#f59e0b" />
-                                <Text style={styles.tinyBadgeCautionText}>ควรระวัง</Text>
-                              </View>
-                            )}
-                            {res.rating === 'action_needed' && (
-                              <View style={styles.tinyBadgeAction}>
-                                <Ionicons name="close" size={12} color="#ef4444" />
-                                <Text style={styles.tinyBadgeActionText}>ต้องแก้ไข</Text>
-                              </View>
-                            )}
+                        {cautionCount > 0 && (
+                          <View style={styles.pillYellow}>
+                            <Text style={styles.pillTextYellow}>{cautionCount} ควรระวัง</Text>
                           </View>
-                        ))}
+                        )}
+                        {actionCount > 0 && (
+                          <View style={styles.pillRed}>
+                            <Text style={styles.pillTextRed}>{actionCount} ต้องแก้ไข</Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={styles.expandToggleBtn}
+                          onPress={() => setExpandedCheckId(isExpanded ? null : log.id)}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.expandToggleText}>
+                            {isExpanded ? 'ซ่อน 9 จุด' : 'ดูทั้ง 9 จุด'}
+                          </Text>
+                          <Ionicons
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={14}
+                            color="#38bdf8"
+                          />
+                        </TouchableOpacity>
                       </View>
-                    )}
+                      {/* Expanded 9 Items List */}
+                      {isExpanded && (
+                        <View style={styles.expandedItemsContainer}>
+                          {log.results.map((res, i) => (
+                            <View key={res.itemId} style={styles.resultItemRow}>
+                              <View style={styles.resultItemNum}>
+                                <Text style={styles.resultItemNumText}>{i + 1}</Text>
+                              </View>
+                              <Text style={styles.resultItemTitle} numberOfLines={1}>
+                                {res.title}
+                              </Text>
+                              {res.rating === 'normal' && (
+                                <View style={styles.tinyBadgeNormal}>
+                                  <Ionicons name="checkmark" size={12} color="#10b981" />
+                                  <Text style={styles.tinyBadgeNormalText}>ปกติ</Text>
+                                </View>
+                              )}
+                              {res.rating === 'caution' && (
+                                <View style={styles.tinyBadgeCaution}>
+                                  <Ionicons name="alert" size={12} color="#f59e0b" />
+                                  <Text style={styles.tinyBadgeCautionText}>ควรระวัง</Text>
+                                </View>
+                              )}
+                              {res.rating === 'action_needed' && (
+                                <View style={styles.tinyBadgeAction}>
+                                  <Ionicons name="close" size={12} color="#ef4444" />
+                                  <Text style={styles.tinyBadgeActionText}>ต้องแก้ไข</Text>
+                                </View>
+                              )}
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
                   </View>
                 );
@@ -1357,6 +1382,20 @@ export default function LogsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Popup Modal */}
+      <DeleteConfirmModal
+        visible={deleteModalVisible}
+        title={deleteModalConfig.title}
+        message={deleteModalConfig.message}
+        confirmText="ตกลง"
+        cancelText="ยกเลิก"
+        loading={isDeleting}
+        onClose={() => {
+          if (!isDeleting) setDeleteModalVisible(false);
+        }}
+        onConfirm={deleteModalConfig.onConfirm}
+      />
     </SafeAreaView>
   );
 }
