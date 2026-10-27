@@ -34,6 +34,7 @@ import { BASIC_CHECK_ITEMS, CheckTemplateItem } from '../data/checkTemplates';
 import { useLanguage } from '../lib/LanguageContext';
 import { getVehicleCategoryOptions } from '../lib/vehicleFluids';
 import { DeleteConfirmModal } from '../components/ui/DeleteConfirmModal';
+import { validateLogInput } from '../lib/validation';
 const RAN_IMAGES = {
   normal: require('../../assets/ran_normal.png'),
   smile: require('../../assets/ran_smile.png'),
@@ -135,7 +136,7 @@ export default function LogsScreen() {
   }>({
     title: 'ต้องการลบรายการหรือไม่?',
     message: '',
-    onConfirm: async () => {},
+    onConfirm: async () => { },
   });
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -148,6 +149,17 @@ export default function LogsScreen() {
     const current = carList.find((v) => v.id === activeId) || carList[0] || null;
     setActiveCar(current);
     const logList = await getMaintenanceLogs(current ? current.id : undefined);
+    // Sort latest first (by date descending, then mileage descending, then createdAt descending)
+    logList.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (dateB !== dateA) return dateB - dateA;
+      if (b.mileage !== a.mileage) return (b.mileage || 0) - (a.mileage || 0);
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      return 0;
+    });
     setLogs(logList);
     const chkList = await getBasicCheckLogs(current ? current.id : undefined);
     // Sort latest first
@@ -332,6 +344,21 @@ export default function LogsScreen() {
     const mileageNum = parseInt(mileage.replace(/,/g, ''), 10) || activeCar.currentMileage;
     const costNum = parseFloat(costThb.replace(/,/g, '')) || 0;
     const volNum = volumeLitres ? parseFloat(volumeLitres) : undefined;
+
+    const validation = validateLogInput({
+      serviceName,
+      mileage: mileageNum,
+      costThb: costNum,
+      volumeLitres: volNum,
+      productName,
+      notes,
+    });
+
+    if (!validation.isValid) {
+      Alert.alert('ข้อมูลไม่ถูกต้อง', validation.error || 'กรุณาตรวจสอบข้อมูล');
+      return;
+    }
+
     const newLog: MaintenanceLog = {
       id: `log-${Date.now()}`,
       vehicleId: activeCar.id,
@@ -769,63 +796,77 @@ export default function LogsScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              logs.map((item) => (
-                <View key={item.id} style={styles.logCard}>
-                  <View style={styles.logCardHeader}>
-                    <View style={styles.badgeRow}>
-                      <View style={styles.logBadge}>
-                        <Text style={styles.logBadgeText}>
-                          {CATEGORIES.find((c) => c.key === item.category)?.label || item.category}
-                        </Text>
+              logs.map((item, index) => {
+                const isLatest = index === 0;
+                return (
+                  <View key={item.id} style={styles.savedCheckItemWrapper}>
+                    {/* Latest Badge Outside Box */}
+                    {isLatest && (
+                      <View style={styles.latestCheckBadgeOutsideRow}>
+                        <View style={styles.latestCheckBadgeOutside}>
+                          <Ionicons name="sparkles" size={12} color="#ffffff" />
+                          <Text style={styles.latestCheckBadgeOutsideText}>บันทึกล่าสุด</Text>
+                        </View>
                       </View>
-                      <Text style={styles.logDate}>{item.date}</Text>
-                    </View>
-                    <View style={styles.actionBtnRow}>
-                      <TouchableOpacity
-                        style={[styles.actionIconBtn, { marginRight: 6 }]}
-                        onPress={() => handleOpenLogInfo(item)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="information-circle-outline" size={19} color="#38bdf8" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionIconBtn}
-                        onPress={() => handleDeleteLog(item)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="trash-outline" size={19} color="#ef4444" />
-                      </TouchableOpacity>
+                    )}
+                    <View style={[styles.logCard, isLatest && styles.logCardLatest]}>
+                      <View style={styles.logCardHeader}>
+                        <View style={styles.badgeRow}>
+                          <View style={styles.logBadge}>
+                            <Text style={styles.logBadgeText}>
+                              {CATEGORIES.find((c) => c.key === item.category)?.label || item.category}
+                            </Text>
+                          </View>
+                          <Text style={styles.logDate}>{item.date}</Text>
+                        </View>
+                        <View style={styles.actionBtnRow}>
+                          <TouchableOpacity
+                            style={[styles.actionIconBtn, { marginRight: 6 }]}
+                            onPress={() => handleOpenLogInfo(item)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="information-circle-outline" size={19} color="#38bdf8" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionIconBtn}
+                            onPress={() => handleDeleteLog(item)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="trash-outline" size={19} color="#ef4444" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <Text style={styles.logServiceName}>{item.serviceName}</Text>
+                      <View style={styles.logDetailsGrid}>
+                        <View style={styles.logDetailItem}>
+                          <Text style={styles.logDetailLabel}>เลขไมล์ที่ทำ:</Text>
+                          <Text style={styles.logDetailVal}>{item.mileage.toLocaleString()} กม.</Text>
+                        </View>
+                        <View style={styles.logDetailItem}>
+                          <Text style={styles.logDetailLabel}>ผลิตภัณฑ์:</Text>
+                          <Text style={styles.logDetailVal}>{item.productName || 'ของแท้'}</Text>
+                        </View>
+                        {item.volumeLitres ? (
+                          <View style={styles.logDetailItem}>
+                            <Text style={styles.logDetailLabel}>ปริมาณ:</Text>
+                            <Text style={styles.logDetailVal}>{item.volumeLitres} ลิตร</Text>
+                          </View>
+                        ) : null}
+                        <View style={styles.logDetailItem}>
+                          <Text style={styles.logDetailLabel}>ค่าใช้จ่าย:</Text>
+                          <Text style={styles.logCostVal}>{Number(item.costThb || 0).toLocaleString()} ฿</Text>
+                        </View>
+                      </View>
+                      {item.notes ? (
+                        <View style={styles.noteBox}>
+                          <Ionicons name="information-circle-outline" size={14} color="#94a3b8" style={{ marginRight: 4 }} />
+                          <Text style={styles.logNoteText}>{item.notes}</Text>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
-                  <Text style={styles.logServiceName}>{item.serviceName}</Text>
-                  <View style={styles.logDetailsGrid}>
-                    <View style={styles.logDetailItem}>
-                      <Text style={styles.logDetailLabel}>เลขไมล์ที่ทำ:</Text>
-                      <Text style={styles.logDetailVal}>{item.mileage.toLocaleString()} กม.</Text>
-                    </View>
-                    <View style={styles.logDetailItem}>
-                      <Text style={styles.logDetailLabel}>ผลิตภัณฑ์:</Text>
-                      <Text style={styles.logDetailVal}>{item.productName || 'ของแท้'}</Text>
-                    </View>
-                    {item.volumeLitres ? (
-                      <View style={styles.logDetailItem}>
-                        <Text style={styles.logDetailLabel}>ปริมาณ:</Text>
-                        <Text style={styles.logDetailVal}>{item.volumeLitres} ลิตร</Text>
-                      </View>
-                    ) : null}
-                    <View style={styles.logDetailItem}>
-                      <Text style={styles.logDetailLabel}>ค่าใช้จ่าย:</Text>
-                      <Text style={styles.logCostVal}>{Number(item.costThb || 0).toLocaleString()} ฿</Text>
-                    </View>
-                  </View>
-                  {item.notes ? (
-                    <View style={styles.noteBox}>
-                      <Ionicons name="information-circle-outline" size={14} color="#94a3b8" style={{ marginRight: 4 }} />
-                      <Text style={styles.logNoteText}>{item.notes}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         )}
@@ -1575,6 +1616,10 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  logCardLatest: {
+    borderColor: '#38bdf8',
+    borderWidth: 1.5,
   },
   logCardHeader: {
     flexDirection: 'row',

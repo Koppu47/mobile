@@ -178,6 +178,15 @@ function mapVehicleToDb(vehicle: UserVehicle, userId?: string) {
   };
 }
 
+export function sanitizeSafeUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (/^https:\/\/[a-zA-Z0-9-._~:/?#[\]@!$&'()*+,;=]+$/i.test(trimmed)) {
+    return trimmed;
+  }
+  return null;
+}
+
 function mapDbToLog(row: any): MaintenanceLog {
   return {
     id: row.id,
@@ -191,7 +200,7 @@ function mapDbToLog(row: any): MaintenanceLog {
     volumeLitres: row.volume_litres ? Number(row.volume_litres) : undefined,
     costThb: Number(row.cost_thb || 0),
     notes: row.notes,
-    receiptUrl: row.photo_url,
+    receiptUrl: sanitizeSafeUrl(row.photo_url) || undefined,
     createdAt: row.created_at,
   };
 }
@@ -209,7 +218,7 @@ function mapLogToDb(log: MaintenanceLog, userId?: string) {
     volume_litres: log.volumeLitres ?? null,
     cost_thb: log.costThb ?? 0,
     notes: log.notes ?? '',
-    photo_url: log.receiptUrl ?? null,
+    photo_url: sanitizeSafeUrl(log.receiptUrl),
   };
 }
 

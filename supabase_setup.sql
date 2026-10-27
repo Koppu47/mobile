@@ -117,40 +117,40 @@ drop policy if exists "Catalog variants readable by anyone" on public.vehicle_va
 create policy "Catalog variants readable by anyone" on public.vehicle_variants for select using (true);
 
 drop policy if exists "Allow select user_vehicles" on public.user_vehicles;
-create policy "Allow select user_vehicles" on public.user_vehicles for select using (true);
+create policy "Allow select user_vehicles" on public.user_vehicles for select using (auth.uid() = user_id);
 
 drop policy if exists "Allow insert user_vehicles" on public.user_vehicles;
-create policy "Allow insert user_vehicles" on public.user_vehicles for insert with check (true);
+create policy "Allow insert user_vehicles" on public.user_vehicles for insert with check (auth.uid() = user_id);
 
 drop policy if exists "Allow update user_vehicles" on public.user_vehicles;
-create policy "Allow update user_vehicles" on public.user_vehicles for update using (true);
+create policy "Allow update user_vehicles" on public.user_vehicles for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "Allow delete user_vehicles" on public.user_vehicles;
-create policy "Allow delete user_vehicles" on public.user_vehicles for delete using (true);
+create policy "Allow delete user_vehicles" on public.user_vehicles for delete using (auth.uid() = user_id);
 
 drop policy if exists "Allow select maintenance_logs" on public.maintenance_logs;
-create policy "Allow select maintenance_logs" on public.maintenance_logs for select using (true);
+create policy "Allow select maintenance_logs" on public.maintenance_logs for select using (auth.uid() = user_id);
 
 drop policy if exists "Allow insert maintenance_logs" on public.maintenance_logs;
-create policy "Allow insert maintenance_logs" on public.maintenance_logs for insert with check (true);
+create policy "Allow insert maintenance_logs" on public.maintenance_logs for insert with check (auth.uid() = user_id);
 
 drop policy if exists "Allow update maintenance_logs" on public.maintenance_logs;
-create policy "Allow update maintenance_logs" on public.maintenance_logs for update using (true);
+create policy "Allow update maintenance_logs" on public.maintenance_logs for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "Allow delete maintenance_logs" on public.maintenance_logs;
-create policy "Allow delete maintenance_logs" on public.maintenance_logs for delete using (true);
+create policy "Allow delete maintenance_logs" on public.maintenance_logs for delete using (auth.uid() = user_id);
 
 drop policy if exists "Allow select basic_check_logs" on public.basic_check_logs;
-create policy "Allow select basic_check_logs" on public.basic_check_logs for select using (true);
+create policy "Allow select basic_check_logs" on public.basic_check_logs for select using (auth.uid() = user_id);
 
 drop policy if exists "Allow insert basic_check_logs" on public.basic_check_logs;
-create policy "Allow insert basic_check_logs" on public.basic_check_logs for insert with check (true);
+create policy "Allow insert basic_check_logs" on public.basic_check_logs for insert with check (auth.uid() = user_id);
 
 drop policy if exists "Allow update basic_check_logs" on public.basic_check_logs;
-create policy "Allow update basic_check_logs" on public.basic_check_logs for update using (true);
+create policy "Allow update basic_check_logs" on public.basic_check_logs for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "Allow delete basic_check_logs" on public.basic_check_logs;
-create policy "Allow delete basic_check_logs" on public.basic_check_logs for delete using (true);
+create policy "Allow delete basic_check_logs" on public.basic_check_logs for delete using (auth.uid() = user_id);
 
 -- 5. INSERT SEED CATALOG DATA
 insert into public.brands (id, name, country) values

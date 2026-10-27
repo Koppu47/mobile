@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth, DEMO_ACCOUNTS, cleanDisplayName } from '../lib/AuthContext';
+import { useAuth, cleanDisplayName } from '../lib/AuthContext';
 import { AuthSuccessModal } from '../components/ui/AuthSuccessModal';
 import { LogoutConfirmModal } from '../components/ui/LogoutConfirmModal';
 
@@ -24,8 +24,6 @@ export default function LoginScreen() {
     isGuest,
     loginWithPassword,
     registerWithPassword,
-    loginAsDemoUser,
-    loginAsDemoAdmin,
     loginAsGuest,
     logout,
   } = useAuth();
@@ -87,23 +85,7 @@ export default function LoginScreen() {
     }
   };
 
-  const handleDemoUser = async () => {
-    await loginAsDemoUser();
-    setAuthModal({
-      visible: true,
-      type: 'login',
-      targetRoute: '/',
-    });
-  };
 
-  const handleDemoAdmin = async () => {
-    await loginAsDemoAdmin();
-    setAuthModal({
-      visible: true,
-      type: 'login',
-      targetRoute: '/',
-    });
-  };
 
   const handleGuest = async () => {
     await loginAsGuest();
@@ -296,45 +278,14 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Demo Fast Access Section */}
-        <View style={styles.demoSection}>
-          <View style={styles.demoHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="sparkles" size={14} color="#38bdf8" />
-              <Text style={styles.demoTitle}>บัญชีจำลองสำหรับทดสอบ (Demo)</Text>
-            </View>
-            <Text style={styles.demoSub}>คลิกเดียวเข้าใช้งาน</Text>
+        {/* Guest Mode */}
+        <TouchableOpacity style={styles.guestButton} onPress={handleGuest}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="car-outline" size={16} color="#94a3b8" />
+            <Text style={styles.guestButtonText}>เข้าใช้งานแบบผู้เยี่ยมชม (Guest Mode)</Text>
           </View>
-
-          <View style={styles.demoGrid}>
-            <TouchableOpacity style={styles.demoBoxUser} onPress={handleDemoUser}>
-              <View style={styles.demoBoxHeader}>
-                <Ionicons name="person" size={14} color="#38bdf8" />
-                <Text style={styles.demoBoxTitleUser}>User จำลอง</Text>
-              </View>
-              <Text style={styles.demoBoxEmail} numberOfLines={1}>{DEMO_ACCOUNTS.user.email}</Text>
-              <Text style={styles.demoBoxPass}>รหัส: {DEMO_ACCOUNTS.user.password}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.demoBoxAdmin} onPress={handleDemoAdmin}>
-              <View style={styles.demoBoxHeader}>
-                <Ionicons name="shield-checkmark" size={14} color="#fb923c" />
-                <Text style={styles.demoBoxTitleAdmin}>Admin จำลอง</Text>
-              </View>
-              <Text style={styles.demoBoxEmail} numberOfLines={1}>{DEMO_ACCOUNTS.admin.email}</Text>
-              <Text style={styles.demoBoxPass}>รหัส: {DEMO_ACCOUNTS.admin.password}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Guest Mode */}
-          <TouchableOpacity style={styles.guestButton} onPress={handleGuest}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="car-outline" size={16} color="#94a3b8" />
-              <Text style={styles.guestButtonText}>เข้าใช้งานแบบผู้เยี่ยมชม (Guest Mode)</Text>
-            </View>
-            <Text style={styles.guestButtonSub}>ใช้ข้อมูลเดิมในเครื่อง →</Text>
-          </TouchableOpacity>
-        </View>
+          <Text style={styles.guestButtonSub}>ใช้ข้อมูลเดิมในเครื่อง →</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Floating Auth Success Modal */}
@@ -380,83 +331,17 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
   },
-  demoSection: {
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: '#0b1120',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    gap: 10,
-  },
-  demoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  demoTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#38bdf8',
-  },
-  demoSub: {
-    fontSize: 10,
-    color: '#64748b',
-  },
-  demoGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  demoBoxUser: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: '#020617',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
-  },
-  demoBoxAdmin: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: '#020617',
-    borderWidth: 1,
-    borderColor: 'rgba(251, 146, 60, 0.25)',
-  },
-  demoBoxHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 4,
-  },
-  demoBoxTitleUser: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#38bdf8',
-  },
-  demoBoxTitleAdmin: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fb923c',
-  },
-  demoBoxEmail: {
-    fontSize: 10,
-    color: '#94a3b8',
-  },
-  demoBoxPass: {
-    fontSize: 10,
-    color: '#64748b',
-    marginTop: 2,
-  },
   guestButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     backgroundColor: '#0f172a',
     borderWidth: 1,
     borderColor: '#1e293b',
+    marginTop: 4,
   },
   guestButtonText: {
     fontSize: 11,

@@ -78,9 +78,9 @@ export default function StatusScreen() {
           </View>
 
           <View style={styles.row}>
-            <Text style={styles.label}>Project URL:</Text>
+            <Text style={styles.label}>Cloud Service:</Text>
             <Text style={styles.val} numberOfLines={1}>
-              https://acjcnusbzfjulcigmlwd.supabase.co
+              Supabase Managed DB
             </Text>
           </View>
 

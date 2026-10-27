@@ -116,19 +116,37 @@ alter table public.profiles enable row level security;
 
 -- Policies: Users can view and manage their own data
 create policy "Users can view own vehicles" on public.user_vehicles
-  for select using (auth.uid() = user_id or auth.uid() is null);
+  for select using (auth.uid() = user_id);
 
 create policy "Users can insert own vehicles" on public.user_vehicles
-  for insert with check (auth.uid() = user_id or auth.uid() is null);
+  for insert with check (auth.uid() = user_id);
 
 create policy "Users can update own vehicles" on public.user_vehicles
-  for update using (auth.uid() = user_id or auth.uid() is null);
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "Users can delete own vehicles" on public.user_vehicles
-  for delete using (auth.uid() = user_id or auth.uid() is null);
+  for delete using (auth.uid() = user_id);
 
 create policy "Users can view own logs" on public.maintenance_logs
-  for select using (auth.uid() = user_id or auth.uid() is null);
+  for select using (auth.uid() = user_id);
 
 create policy "Users can insert own logs" on public.maintenance_logs
-  for insert with check (auth.uid() = user_id or auth.uid() is null);
+  for insert with check (auth.uid() = user_id);
+
+create policy "Users can update own logs" on public.maintenance_logs
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "Users can delete own logs" on public.maintenance_logs
+  for delete using (auth.uid() = user_id);
+
+create policy "Users can view own checks" on public.basic_check_logs
+  for select using (auth.uid() = user_id);
+
+create policy "Users can insert own checks" on public.basic_check_logs
+  for insert with check (auth.uid() = user_id);
+
+create policy "Users can update own checks" on public.basic_check_logs
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "Users can delete own checks" on public.basic_check_logs
+  for delete using (auth.uid() = user_id);

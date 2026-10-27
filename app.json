@@ -11,7 +11,7 @@
       "icon": "./assets/images/icon.png"
     },
     "android": {
-      "package": "com.carservices.app",
+      "package": "com.kopputanadon.carservices",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -36,6 +36,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "675de8c2-30dd-4280-a6be-b2a542d4cd97"
+      }
     }
   }
 }

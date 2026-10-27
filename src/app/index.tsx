@@ -32,6 +32,8 @@ const MASCOT_IMAGES = {
   curious: require('../../assets/curious.png'),
 };
 
+const ROOM_BG = require('../../assets/room_bg.jpg');
+
 export default function HomeScreen() {
   const router = useRouter();
   const { lang } = useLanguage();
@@ -110,12 +112,15 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <View style={styles.logoBadge}>
-            <Ionicons name="car" size={18} color="#fff" />
+            <Image
+              source={require('../../assets/images/icon.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.appSubTitle}>CarServices</Text>
             <Text style={styles.appTitle} numberOfLines={1}>
-              {lang === 'th' ? 'คู่มือของเหลวรถยนต์' : 'Car Fluids Guide'}
+              CarServices
             </Text>
           </View>
           <TouchableOpacity
@@ -147,21 +152,30 @@ export default function HomeScreen() {
         {/* Active Vehicle Card */}
         {activeCar ? (
           <>
-            {/* Mascot Character Banner (ตัวละครเกาะบนกรอบรถที่เลือกใช้งาน - แตะเพื่อสุ่มคำพูดและเปลี่ยนอารมณ์) */}
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={handleMascotTap}
-              style={styles.mascotBanner}
-              accessibilityRole="button"
-              accessibilityLabel="แตะตัวละครเพื่อสุ่มคำพูดหรือเคล็ดลับดูแลรถ"
-            >
-              <View style={styles.mascotCharWrap}>
+            {/* Mascot Character Banner (ตัวละครเกาะบนกรอบรถที่เลือกใช้งาน - แตะที่ตัวละครเพื่อสุ่มคำพูดและเปลี่ยนอารมณ์) */}
+            <View style={styles.mascotBanner}>
+              <View style={styles.mascotBgContainer}>
+                <Image
+                  source={ROOM_BG}
+                  style={styles.mascotBgImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.mascotBgOverlay} />
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleMascotTap}
+                style={styles.mascotCharWrap}
+                accessibilityRole="button"
+                accessibilityLabel="แตะตัวละครเพื่อสุ่มคำพูดหรือเคล็ดลับดูแลรถ"
+              >
                 <Image
                   source={MASCOT_IMAGES[currentDialogue.mood]}
                   style={styles.mascotImage}
                   resizeMode="contain"
                 />
-              </View>
+              </TouchableOpacity>
 
               <View style={styles.speechBubbleWrap}>
                 <View style={styles.speechBubble}>
@@ -174,55 +188,64 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               </View>
-            </TouchableOpacity>
+            </View>
 
             <View style={styles.carCard}>
-            <View style={styles.carBadgeRow}>
-              <Text style={styles.activeTag}>
-                {lang === 'th' ? '✓ รถที่เลือกใช้งาน' : '✓ Active Vehicle'}
-              </Text>
-              <Text style={styles.carYear}>{activeCar.year}</Text>
-            </View>
-            <Text style={styles.carNickname}>
-              {activeCar.nickname || `${activeCar.brandName} ${activeCar.modelName}`}
-            </Text>
-            <Text style={styles.carSub}>
-              {activeCar.brandName} {activeCar.modelName} • {activeCar.variantName}
-            </Text>
-
-            <View style={styles.specsRow}>
-              <View style={styles.specItem}>
-                <Text style={styles.specLabel}>
-                  {lang === 'th' ? 'รายการที่ทำล่าสุด' : 'Latest Service'}
+              <View style={styles.carBadgeRow}>
+                <Text style={styles.activeTag}>
+                  {lang === 'th' ? '✓ รถที่เลือกใช้งาน' : '✓ Active Vehicle'}
                 </Text>
-                <Text style={styles.specValHighlight} numberOfLines={1}>
-                  {latestLog ? latestLog.serviceName : (lang === 'th' ? 'ยังไม่มีประวัติการดูแล' : 'No service history')}
-                </Text>
-                {latestLog && (
-                  <Text style={styles.specDateText} numberOfLines={1}>
-                    {lang === 'th'
-                      ? `วันที่: ${latestLog.date}${latestLog.mileage != null ? ` • ${latestLog.mileage.toLocaleString()} กม.` : ''}`
-                      : `Date: ${latestLog.date}${latestLog.mileage != null ? ` • ${latestLog.mileage.toLocaleString()} km` : ''}`}
-                  </Text>
-                )}
+                <Text style={styles.carYear}>{activeCar.year}</Text>
               </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.selectCarBtn}
-              onPress={() => router.push('/cars' as any)}
-            >
-              <Ionicons name="car-sport" size={17} color="#ffffff" />
-              <Text style={styles.selectCarBtnText}>
-                {lang === 'th' ? 'เลือกรถ' : 'Select Vehicle'}
+              <Text style={styles.carNickname}>
+                {activeCar.nickname || `${activeCar.brandName} ${activeCar.modelName}`}
               </Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      ) : (
+              <Text style={styles.carSub}>
+                {activeCar.brandName} {activeCar.modelName} • {activeCar.variantName}
+              </Text>
+
+              <View style={styles.specsRow}>
+                <View style={styles.specItem}>
+                  <Text style={styles.specLabel}>
+                    {lang === 'th' ? 'รายการที่ทำล่าสุด' : 'Latest Service'}
+                  </Text>
+                  <Text style={styles.specValHighlight} numberOfLines={1}>
+                    {latestLog ? latestLog.serviceName : (lang === 'th' ? 'ยังไม่มีประวัติการดูแล' : 'No service history')}
+                  </Text>
+                  {latestLog && (
+                    <Text style={styles.specDateText} numberOfLines={1}>
+                      {lang === 'th'
+                        ? `วันที่: ${latestLog.date}${latestLog.mileage != null ? ` • ${latestLog.mileage.toLocaleString()} กม.` : ''}`
+                        : `Date: ${latestLog.date}${latestLog.mileage != null ? ` • ${latestLog.mileage.toLocaleString()} km` : ''}`}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.selectCarBtn}
+                onPress={() => router.push('/cars' as any)}
+              >
+                <Ionicons name="car-sport" size={17} color="#ffffff" />
+                <Text style={styles.selectCarBtnText}>
+                  {lang === 'th' ? 'เลือกรถ' : 'Select Vehicle'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
           <View>
             {/* Mascot Character Banner (ตัวละครตอนยังไม่มีรถ - แตะเปลี่ยนไม่ได้ คงที่ข้อความ) */}
             <View style={styles.mascotBanner}>
+              <View style={styles.mascotBgContainer}>
+                <Image
+                  source={ROOM_BG}
+                  style={styles.mascotBgImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.mascotBgOverlay} />
+              </View>
+
               <View style={styles.mascotCharWrap}>
                 <Image
                   source={MASCOT_IMAGES.main01}
@@ -466,27 +489,66 @@ const styles = StyleSheet.create({
   logoBadge: {
     width: 36,
     height: 36,
-    borderRadius: 12,
-    backgroundColor: '#0284c7',
+    borderRadius: 10,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
   appSubTitle: { fontSize: 11, color: '#38bdf8', fontWeight: '600' },
-  appTitle: { fontSize: 16, color: '#fff', fontWeight: 'bold' },
+  appTitle: { fontSize: 17, color: '#ffffff', fontWeight: 'bold' },
   mascotBanner: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: -6,
+    marginBottom: 0,
     zIndex: 10,
     elevation: 10,
     paddingLeft: 18,
-    paddingRight: 6,
+    paddingRight: 10,
+    paddingTop: 10,
+  },
+  mascotBgContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#1e293b',
+    backgroundColor: '#0f172a',
+  },
+  mascotBgImage: {
+    position: 'absolute',
+    top: -15,
+    bottom: 0,
+    left: -20,
+    right: -20,
+    width: '115%',
+    height: '118%',
+    opacity: 0.95,
+  },
+  mascotBgOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.22)',
   },
   mascotCharWrap: {
     width: 125,
     height: 155,
-    zIndex: 10,
-    elevation: 10,
+    marginBottom: -6,
+    zIndex: 15,
+    elevation: 15,
   },
   mascotImage: {
     width: '100%',
@@ -496,7 +558,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingLeft: 10,
     paddingRight: 4,
-    paddingBottom: 18,
+    paddingBottom: 22,
     justifyContent: 'center',
     zIndex: 5,
   },
@@ -555,9 +617,13 @@ const styles = StyleSheet.create({
   },
   carCard: {
     backgroundColor: '#111827',
-    borderRadius: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     padding: 16,
     borderWidth: 1,
+    borderTopWidth: 0,
     borderColor: '#1e293b',
     marginBottom: 16,
     zIndex: 1,
@@ -595,11 +661,15 @@ const styles = StyleSheet.create({
   selectCarBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13.5 },
   noCarCard: {
     backgroundColor: '#111827',
-    borderRadius: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     padding: 24,
     alignItems: 'center',
     marginBottom: 16,
     borderWidth: 1,
+    borderTopWidth: 0,
     borderColor: '#1e293b',
   },
   noCarTitle: { color: '#fff', fontWeight: 'bold', fontSize: 15, marginTop: 8 },

@@ -12,20 +12,14 @@ export const DEMO_ACCOUNTS = {
   user: {
     id: 'demo-user-id',
     email: 'user@carservices.demo',
-    password: 'user1234',
     display_name: 'สมชาย มั่นคง',
     role: 'user' as const,
-  },
-  admin: {
-    id: 'demo-admin-id',
-    email: 'admin@carservices.demo',
-    password: 'admin1234',
-    display_name: 'ผู้ดูแลระบบ',
-    role: 'admin' as const,
   },
 };
 
 const AUTH_STORAGE_KEY = 'carservices_active_auth_profile';
+let failedAttempts = 0;
+let lockoutUntil = 0;
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -35,7 +29,6 @@ interface AuthContextType {
   loginWithPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   registerWithPassword: (email: string, password: string, displayName: string) => Promise<{ success: boolean; error?: string }>;
   loginAsDemoUser: () => Promise<void>;
-  loginAsDemoAdmin: () => Promise<void>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -50,21 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const saved = await SafeStorage.getItem(AUTH_STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed.email) {
-            const cleaned = {
-              ...parsed,
-              display_name: cleanDisplayName(parsed.display_name),
-            };
-            setUser(cleaned);
-            setIsGuest(false);
-            setIsLoading(false);
-            return;
-          }
-        }
-
         if (isSupabaseConfigured()) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
@@ -85,6 +63,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(resolvedUser);
             setIsGuest(false);
             await SafeStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(resolvedUser));
+            setIsLoading(false);
+            return;
+          } else {
+            await SafeStorage.removeItem(AUTH_STORAGE_KEY);
+            setUser(null);
+            setIsGuest(true);
+          }
+        } else {
+          const saved = await SafeStorage.getItem(AUTH_STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.email) {
+              const cleaned = {
+                ...parsed,
+                role: 'user' as const, // Never allow unverified admin
+                display_name: cleanDisplayName(parsed.display_name),
+              };
+              setUser(cleaned);
+              setIsGuest(false);
+              setIsLoading(false);
+              return;
+            }
           }
         }
       } catch (err) {
@@ -115,6 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(resolvedUser);
         setIsGuest(false);
         await SafeStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(resolvedUser));
+      } else {
+        setUser(null);
+        setIsGuest(true);
+        await SafeStorage.removeItem(AUTH_STORAGE_KEY);
       }
     });
 
@@ -124,39 +128,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loginWithPassword = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    // Rate limiting check
+    const now = Date.now();
+    if (now < lockoutUntil) {
+      const waitSec = Math.ceil((lockoutUntil - now) / 1000);
+      return { success: false, error: `ระบบระงับการเข้าสู่ระบบชั่วคราวเนื่องจากพยายามล็อกอินผิดบ่อยครั้ง กรุณารอ ${waitSec} วินาที` };
+    }
+
     setIsLoading(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
-
-      // Check Demo Admin
-      if (cleanEmail === DEMO_ACCOUNTS.admin.email && password === DEMO_ACCOUNTS.admin.password) {
-        const adminProfile: UserProfile = {
-          id: DEMO_ACCOUNTS.admin.id,
-          email: DEMO_ACCOUNTS.admin.email,
-          display_name: DEMO_ACCOUNTS.admin.display_name,
-          role: 'admin',
-        };
-        setUser(adminProfile);
-        setIsGuest(false);
-        await SafeStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(adminProfile));
-        setIsLoading(false);
-        return { success: true };
-      }
-
-      // Check Demo User
-      if (cleanEmail === DEMO_ACCOUNTS.user.email && password === DEMO_ACCOUNTS.user.password) {
-        const userProfile: UserProfile = {
-          id: DEMO_ACCOUNTS.user.id,
-          email: DEMO_ACCOUNTS.user.email,
-          display_name: DEMO_ACCOUNTS.user.display_name,
-          role: 'user',
-        };
-        setUser(userProfile);
-        setIsGuest(false);
-        await SafeStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userProfile));
-        setIsLoading(false);
-        return { success: true };
-      }
 
       // Supabase Authentication
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -165,9 +146,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
+        failedAttempts += 1;
+        if (failedAttempts >= 5) {
+          lockoutUntil = Date.now() + 30000;
+          failedAttempts = 0;
+        }
         setIsLoading(false);
         return { success: false, error: error.message };
       }
+
+      failedAttempts = 0;
 
       if (data.user) {
         const { data: profile } = await supabase
@@ -258,18 +246,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SafeStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userProfile));
   };
 
-  const loginAsDemoAdmin = async () => {
-    const adminProfile: UserProfile = {
-      id: DEMO_ACCOUNTS.admin.id,
-      email: DEMO_ACCOUNTS.admin.email,
-      display_name: DEMO_ACCOUNTS.admin.display_name,
-      role: 'admin',
-    };
-    setUser(adminProfile);
-    setIsGuest(false);
-    await SafeStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(adminProfile));
-  };
-
   const loginAsGuest = async () => {
     setUser(null);
     setIsGuest(true);
@@ -299,7 +275,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginWithPassword,
         registerWithPassword,
         loginAsDemoUser,
-        loginAsDemoAdmin,
         loginAsGuest,
         logout,
       }}
